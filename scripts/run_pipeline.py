@@ -46,7 +46,15 @@ def main():
         print(f"{name} completed in {time.time()-t0:.1f}s")
 
     print(f"\nPipeline finished in {time.time()-t_start:.1f}s")
-    print("Refresh the dashboard with: python3 scripts/create_dashboard.py")
+
+    print("\n" + "=" * 60 + "\nMETRICS DRIFT CHECK\n" + "=" * 60)
+    config_path = os.path.join(REPO, "metrics_config.json")
+    if os.path.exists(config_path):
+        subprocess.run([sys.executable, os.path.join(HERE, "metrics_snapshot.py"), config_path])
+    else:
+        print(f"  (skipped -- no {config_path})")
+
+    print("\nRefresh the dashboard with: python3 scripts/create_dashboard.py")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,15 @@
+{
+  "catalog": "indian_ecommerce",
+  "metrics": {
+    "total_orders": "SELECT SUM(orders) FROM indian_ecommerce.gold.revenue_trends",
+    "total_revenue_cr": "SELECT ROUND(SUM(revenue)/1e7,2) FROM indian_ecommerce.gold.revenue_trends",
+    "same_day_avg_delay_pct": "SELECT ROUND(AVG(delay_rate_pct),2) FROM indian_ecommerce.gold.delivery_performance WHERE shipping_method = 'Same-Day'",
+    "avg_delay_rating": "SELECT avg_rating FROM indian_ecommerce.gold.delay_impact_on_experience WHERE delivery_outcome = 'Delayed'",
+    "targeting_precision_worst_pct": "SELECT MIN(targeting_precision_pct) FROM indian_ecommerce.gold.campaign_targeting_precision",
+    "cancel_rate_no_discount_pct": "SELECT cancel_rate_pct FROM indian_ecommerce.gold.discount_effectiveness WHERE discount_band = '1. No discount'",
+    "cancel_rate_20pct_discount": "SELECT cancel_rate_pct FROM indian_ecommerce.gold.discount_effectiveness WHERE discount_band = '4. 20%+'",
+    "retention_m1_avg_pct": "SELECT ROUND(AVG(retention_m1_pct),2) FROM indian_ecommerce.gold.cohort_retention",
+    "repeat_purchase_pct": "SELECT pct_repeat_at_least_once FROM indian_ecommerce.gold.repeat_purchase_timing",
+    "dq_worst_check_pct": "SELECT MAX(pct_affected) FROM indian_ecommerce.gold.data_quality"
+  }
+}
