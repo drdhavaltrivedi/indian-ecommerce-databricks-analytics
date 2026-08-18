@@ -56,31 +56,161 @@ itself informative: see [Data quality](#data-quality) below.
 
 Same medallion shape as the clickstream project, adapted to a relational
 source: bronze mirrors the 9 CSVs 1:1 (all `STRING`), silver types and
-conforms them into a proper star schema (2 dimensions, 1 bridge dimension,
-7 fact tables), gold holds 11 business-facing tables.
+conforms them into a proper star schema (3 dimensions, 6 fact tables), gold
+holds 16 business-facing tables (11 descriptive + 5 opportunity/diagnostic).
 
 Unlike the clickstream project, **no split-upload was needed** — every file
 here is well under the Files API's 5GiB single-PUT limit (largest is
 `order_items.csv` at 17MB), so ingestion is a single `PUT` per file, direct to
 a Unity Catalog Volume, then one straightforward `COPY INTO` per table.
 
+```mermaid
+flowchart TD
+    subgraph SRC["SOURCE"]
+        CSV["9 CSVs, ~57MB total<br/>customers · products · orders · order_items<br/>payments · shipments · returns · reviews · campaigns"]
+    end
+
+    subgraph BRZ["BRONZE — fidelity"]
+        BE["<b>bronze.*</b> — 9 tables<br/>1:1 with source, every column STRING"]
+    end
+
+    subgraph SLV["SILVER — typed star schema"]
+        DC["<b>dim_customer</b><br/>25,000 rows"]
+        DP["<b>dim_product</b><br/>550 rows"]
+        DCP["<b>dim_campaign</b><br/>151 rows"]
+        FO["<b>fact_orders</b><br/>100,000 rows"]
+        FOI["<b>fact_order_items</b><br/>254,331 rows"]
+        FP["<b>fact_payments</b><br/>100,000 rows"]
+        FS["<b>fact_shipments</b><br/>89,681 rows"]
+        FR["<b>fact_returns</b><br/>12,075 rows"]
+        FRV["<b>fact_reviews</b><br/>77,530 rows"]
+    end
+
+    subgraph GLD["GOLD — 16 tables"]
+        GD["<b>Descriptive</b> · 11 tables<br/>revenue_trends · category_performance<br/>segment_performance · channel_performance<br/>campaign_roi · delivery_performance<br/>return_analysis · payment_performance<br/>state_performance · review_integrity · data_quality"]
+        GO["<b>Opportunities</b> · 5 tables<br/>product_true_profitability<br/>campaign_targeting_precision<br/>delay_impact_on_experience<br/>channel_efficiency · discount_effectiveness"]
+    end
+
+    CSV -->|"single PUT per file<br/>(all well under 5GiB limit)"| BE
+    BE -->|"COPY INTO, one statement<br/>per table"| BE
+    BE -->|"CAST + type<br/>1:1, no row loss"| DC
+    BE --> DP
+    BE --> DCP
+    BE --> FO
+    BE --> FOI
+    BE --> FP
+    BE --> FS
+    BE --> FR
+    BE --> FRV
+
+    FO --> GD
+    FOI --> GD
+    FS --> GD
+    FR --> GD
+    FRV --> GD
+    DCP --> GD
+    FO --> GO
+    FOI --> GO
+    FS --> GO
+    FR --> GO
+    FRV --> GO
+    DCP --> GO
+
+    style BRZ fill:#7a5c1e,stroke:#c89b3c,color:#fff
+    style SLV fill:#4a4a52,stroke:#9aa0a6,color:#fff
+    style GLD fill:#6b5210,stroke:#d4af37,color:#fff
+    style SRC fill:#2d3748,stroke:#718096,color:#fff
 ```
-Kaggle CSVs (9 files, ~57MB total)
-        │  single PUT per file (well under the 5GiB API limit)
-        ▼
-indian_ecommerce.bronze.raw_files  (UC Volume)
-        │  COPY INTO, one statement per table
-        ▼
-indian_ecommerce.bronze.*  (9 tables, all STRING)
-        │  CAST + type, one CREATE OR REPLACE per table
-        ▼
-indian_ecommerce.silver.*  (2 dims, 1 campaign dim, 7 facts)
-        │  aggregate, join, rank
-        ▼
-indian_ecommerce.gold.*  (11 tables: revenue, category, segment,
-                           channel, campaign ROI, delivery, returns,
-                           payments, geography, review integrity, DQ)
+
+**Every row survives bronze → silver unchanged** — 100,000 orders in, 100,000
+`fact_orders` out, same for every other table. That's a direct contrast with
+the clickstream project, where 42.4M bronze rows became 42.4M *minus* 30,222
+duplicates in silver. This dataset has no duplicates to remove because it's a
+single-generator source with enforced consistency — see
+[Data quality](#data-quality) for what that means and doesn't mean.
+
+### Star schema
+
+```mermaid
+erDiagram
+    dim_customer ||--o{ fact_orders : "customer_id"
+    dim_product  ||--o{ fact_order_items : "product_id"
+    fact_orders  ||--o{ fact_order_items : "order_id"
+    fact_orders  ||--|| fact_payments : "order_id"
+    fact_orders  ||--o{ fact_shipments : "order_id"
+    fact_orders  ||--o{ fact_returns : "order_id"
+    fact_orders  ||--o{ fact_reviews : "order_id"
+    dim_campaign ||--o{ fact_orders : "campaign_id"
+
+    dim_customer {
+        string customer_id PK
+        date signup_date
+        string state
+        string city
+        string customer_segment
+        double total_spend
+        string customer_status
+    }
+    dim_product {
+        string product_id PK
+        string category
+        string subcategory
+        double price
+        double cost_price
+        double return_rate_baseline
+    }
+    dim_campaign {
+        string campaign_id PK
+        string channel
+        string target_segment
+        double campaign_cost
+        double roi
+    }
+    fact_orders {
+        string order_id PK
+        string customer_id FK
+        string campaign_id FK
+        date order_date
+        string order_status
+        double final_amount
+    }
+    fact_order_items {
+        string order_item_id PK
+        string order_id FK
+        string product_id FK
+        int quantity
+        double profit
+    }
+    fact_payments {
+        string payment_id PK
+        string order_id FK
+        string payment_method
+        string payment_status
+    }
+    fact_shipments {
+        string shipment_id PK
+        string order_id FK
+        string shipping_method
+        int delayed_flag
+    }
+    fact_returns {
+        string return_id PK
+        string order_id FK
+        string product_id FK
+        string return_reason
+    }
+    fact_reviews {
+        string review_id PK
+        string order_id FK
+        string product_id FK
+        int rating
+    }
 ```
+
+`fact_orders` is the hub every other fact table hangs off — this is why the
+opportunity tables (delay-vs-rating, targeting precision) all start from an
+order-level join rather than joining shipments/reviews/campaigns to each other
+directly.
 
 ## Data quality
 
@@ -335,12 +465,56 @@ export DBX_WAREHOUSE_ID="<sql warehouse id>"
 kaggle datasets download -d shiyalkishan01/indian-e-commerce-sales-and-customer-analytics
 unzip indian-e-commerce-sales-and-customer-analytics.zip -d raw_data
 
+# one-time: catalog structure (skip if already created)
+python3 scripts/dbx_sql.py "CREATE CATALOG IF NOT EXISTS indian_ecommerce"
+python3 scripts/dbx_sql.py "CREATE SCHEMA IF NOT EXISTS indian_ecommerce.bronze"
+python3 scripts/dbx_sql.py "CREATE SCHEMA IF NOT EXISTS indian_ecommerce.silver"
+python3 scripts/dbx_sql.py "CREATE SCHEMA IF NOT EXISTS indian_ecommerce.gold"
+python3 scripts/dbx_sql.py "CREATE VOLUME IF NOT EXISTS indian_ecommerce.bronze.raw_files"
+
+# upload the 9 core CSVs (customers, products, orders, order_items, payments,
+# shipments, returns, customer_reviews, marketing_campaigns -- not the
+# metadata files like data_dictionary.csv)
 python3 scripts/upload_files.py raw_data /Volumes/indian_ecommerce/bronze/raw_files
-python3 scripts/run_sql_file.py sql/01_bronze.sql
-python3 scripts/run_sql_file.py sql/02_silver.sql
-python3 scripts/run_sql_file.py sql/03_gold.sql
+
+# run the whole pipeline (bronze -> silver -> gold -> opportunities -> security)
+python3 scripts/run_pipeline.py
+# or a single layer:
+python3 scripts/run_pipeline.py silver
+
+# refresh the dashboard and Genie space (both create-or-update, safe to re-run)
 python3 scripts/create_dashboard.py
+python3 scripts/create_genie_space.py
+
+# optional: scheduled job + alerts (created paused / no recipients)
+python3 scripts/create_job.py
+python3 scripts/create_alerts.py
 ```
+
+**The whole pipeline is idempotent** — `COPY INTO` skips already-loaded files,
+and every other layer is `CREATE OR REPLACE` or an additive `ALTER`.
+Re-running is always safe.
+
+## Known limitations
+
+- **100% synthetic.** No real customer, order, or transaction is represented.
+  Findings here are a demonstration of the analysis method, not a claim about
+  any real Indian e-commerce business — a real dataset with this schema would
+  need its own data-quality audit from scratch, the same way the clickstream
+  project's audit found a genuine tracking defect that this synthetic one
+  does not have.
+- **No cost-of-goods beyond `cost_price`.** Warehousing, last-mile delivery
+  cost per shipment, and payment-gateway settlement timing aren't in the
+  source data, so `profit` in `order_items` is a simplified margin, not a
+  full P&L.
+- **`campaign_id` is optional on `orders`** — only orders attributed to a
+  campaign carry one, so `channel_efficiency` and `campaign_targeting_precision`
+  necessarily exclude organic, non-attributed orders. That's consistent with
+  how attribution works in practice, but worth stating.
+- **Three years is a decent range but a single instance** of the generator's
+  seasonality model — the festival-spike and year-over-year growth patterns
+  described in the source `README.md` are worth checking against the
+  `revenue_trends` table before treating any single month as representative.
 
 ## What's different from the clickstream project, and why
 
