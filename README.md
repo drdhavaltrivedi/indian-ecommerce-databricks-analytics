@@ -3,10 +3,7 @@
 > ### In short
 >
 > **The data**: a synthetic but internally-consistent Indian e-commerce
-> dataset — 100K orders, 25K customers, 3 years, 15 states — built as a second,
-> independent lakehouse project alongside the clickstream one, to test the same
-> medallion pattern against a completely different shape of data (relational
-> order data instead of raw clickstream events).
+> dataset — 100K orders, 25K customers, 3 years, 15 states.
 >
 > **What it found**: Same-Day delivery fails **54–60% of the time**, at every
 > single warehouse — it isn't a regional problem, the service tier itself is
@@ -18,12 +15,12 @@
 
 ---
 
-This is a **separate, independent project** from the
-[e-commerce clickstream lakehouse](https://github.com/drdhavaltrivedi/ecommerce-databricks-lakehouse) —
-different dataset, different Unity Catalog catalog (`indian_ecommerce` vs
-`ecommerce`), different repo. It reuses the same medallion pattern and the
-same upload/pipeline tooling pattern, deliberately, to prove the approach
-generalizes rather than being a one-off script tied to one dataset's shape.
+A Databricks lakehouse built on Unity Catalog and Delta Lake: a full
+bronze/silver/gold medallion pipeline, a Lakeview dashboard, an AI/BI Genie
+space for natural-language questions, and a documented set of business
+findings — built to answer real e-commerce operating questions (delivery
+reliability, category margin, customer retention, campaign effectiveness)
+rather than just to demonstrate the platform.
 
 ## The dataset
 
@@ -36,9 +33,8 @@ represented.
 
 Nine tables, already relationally consistent (single generator, consistent
 foreign keys across customers/orders/order_items/payments/shipments/returns/
-reviews/campaigns) — a different starting point from the clickstream project,
-where most of the early work was fixing broken tracking. That difference is
-itself informative: see [Data quality](#data-quality) below.
+reviews/campaigns) — every foreign key resolves cleanly, which is confirmed
+directly in [Data quality](#data-quality) below rather than assumed.
 
 | Table | Rows | Grain |
 |---|---|---|
@@ -54,16 +50,15 @@ itself informative: see [Data quality](#data-quality) below.
 
 ## Architecture
 
-Same medallion shape as the clickstream project, adapted to a relational
-source: bronze mirrors the 9 CSVs 1:1 (all `STRING`), silver types and
-conforms them into a proper star schema (3 dimensions, 6 fact tables), gold
-holds 22 business-facing tables (11 descriptive + 5 opportunity/diagnostic +
-6 pattern-analysis).
+A medallion pipeline adapted to a relational source: bronze mirrors the 9
+CSVs 1:1 (all `STRING`), silver types and conforms them into a proper star
+schema (3 dimensions, 6 fact tables), gold holds 22 business-facing tables
+(11 descriptive + 5 opportunity/diagnostic + 6 pattern-analysis).
 
-Unlike the clickstream project, **no split-upload was needed** — every file
-here is well under the Files API's 5GiB single-PUT limit (largest is
-`order_items.csv` at 17MB), so ingestion is a single `PUT` per file, direct to
-a Unity Catalog Volume, then one straightforward `COPY INTO` per table.
+Every source file here is well under the Files API's 5GiB single-PUT limit
+(largest is `order_items.csv` at 17MB), so ingestion is a single `PUT` per
+file, direct to a Unity Catalog Volume, then one straightforward `COPY INTO`
+per table — no multi-part streaming required.
 
 ```mermaid
 flowchart TD
@@ -129,11 +124,10 @@ flowchart TD
 ```
 
 **Every row survives bronze → silver unchanged** — 100,000 orders in, 100,000
-`fact_orders` out, same for every other table. That's a direct contrast with
-the clickstream project, where 42.4M bronze rows became 42.4M *minus* 30,222
-duplicates in silver. This dataset has no duplicates to remove because it's a
-single-generator source with enforced consistency — see
-[Data quality](#data-quality) for what that means and doesn't mean.
+`fact_orders` out, same for every other table. No deduplication step is
+needed because the source is a single-generator dataset with enforced
+consistency — see [Data quality](#data-quality) for what that means and
+doesn't mean.
 
 ### Star schema
 
@@ -220,9 +214,8 @@ directly.
 
 ## Data quality
 
-Ran the same category of checks as the clickstream project — referential
-integrity between orders/payments/shipments, and a sanity check on zero-value
-orders:
+Referential integrity between orders/payments/shipments, and a sanity check
+on zero-value orders:
 
 | Check | Affected | % |
 |---|---|---|
@@ -232,15 +225,11 @@ orders:
 | Orders with `final_amount = 0` | 0 | 0.00% |
 
 **All four checks came back clean.** That's the expected result for a
-single-generator synthetic dataset with enforced FK consistency, and it's a
-useful contrast with the clickstream project, where the equivalent audit found
-that 54% of purchases had no cart event logged. The two results together make
-a point worth stating plainly: **data quality problems come from real-world
-capture and tracking, not from the presence or absence of "real" data** — a
-carefully generated synthetic dataset can be more internally consistent than
-a genuine production feed, and a genuine feed's defects are exactly the
-signal that source-system problems exist. Don't assume clean numbers because
-a dataset "looks structured"; run the checks either way.
+single-generator synthetic dataset with enforced FK consistency — worth
+verifying explicitly rather than assuming, because "the schema looks
+structured" is not the same claim as "the data is internally consistent."
+Every finding below rests on that verification, not on an assumption about
+synthetic data being inherently clean.
 
 ## Findings
 
@@ -354,9 +343,7 @@ concentrated return costs.
 
 The gold tables above answer "what happened." Five more, added in
 [`sql/04_opportunities.sql`](sql/04_opportunities.sql), cross-cut them to
-answer "what's broken and what's it worth" — the same category of analysis
-as the clickstream project's `09_opportunities.sql`, applied independently to
-this dataset's own shape.
+answer "what's broken and what's it worth."
 
 ### Products that look profitable but are net losses after returns
 
@@ -413,12 +400,10 @@ every discount band, while average order value falls from ₹29,033 (no
 discount) to ₹21,951 (20%+ discount). If discounting were preventing
 cancellations, the cancel rate would fall as discount rises — it doesn't.
 
-**What to do**: this is the same conclusion the clickstream project reached
-independently on a completely different dataset (see its
-[`docs/OPPORTUNITIES.md`](https://github.com/drdhavaltrivedi/ecommerce-databricks-lakehouse/blob/main/docs/OPPORTUNITIES.md)).
-Two unrelated datasets landing on the same "discounting isn't proven to work"
-result is worth taking seriously — don't expand discount depth as a
-cancellation-prevention lever without a controlled test.
+**What to do**: don't expand discount depth as a cancellation-prevention
+lever without a controlled test. A holdout test — same product, matched
+period, discount withheld from a random slice — is the only way to get a
+causal answer, and it's cheap relative to the margin at stake.
 
 ## Pattern analysis — cohorts, RFM, affinity, seasonality
 
@@ -483,10 +468,7 @@ lead the negative-review share — categories where sizing, quality
 expectations, or damage-in-transit are hardest to get right without seeing
 the item first.
 
-## Platform features — full parity with the clickstream project
-
-This project now has the same production layer as the clickstream project,
-built independently against this dataset's own findings:
+## Platform features
 
 - **AI/BI Genie** ([`scripts/create_genie_space.py`](scripts/create_genie_space.py)) —
   22 gold tables, 7 instruction blocks covering the nuanced findings
@@ -518,12 +500,16 @@ sql/
                         seasonality, repeat-purchase timing, sentiment
 scripts/
   upload_files.py     -- single-PUT upload (files here are all <5GiB)
-  dbx_sql.py          -- Statement Execution API client (shared pattern)
+  dbx_sql.py          -- Statement Execution API client
   run_sql_file.py     -- runs a .sql file statement by statement
+  run_pipeline.py     -- orchestrates all SQL layers, then a metrics drift check
+  metrics_snapshot.py -- snapshots headline metrics per run and flags drift
   create_dashboard.py -- Lakeview dashboard, create-or-update
   create_genie_space.py -- AI/BI Genie space with nuance-aware instructions
   create_job.py       -- scheduled Workflow (created PAUSED)
   create_alerts.py    -- 3 SQL alerts (no recipients by default)
+
+metrics_config.json    -- ten headline metrics tracked by metrics_snapshot.py
 ```
 
 ## Running it
@@ -548,7 +534,7 @@ python3 scripts/dbx_sql.py "CREATE VOLUME IF NOT EXISTS indian_ecommerce.bronze.
 # metadata files like data_dictionary.csv)
 python3 scripts/upload_files.py raw_data /Volumes/indian_ecommerce/bronze/raw_files
 
-# run the whole pipeline (bronze -> silver -> gold -> opportunities -> security)
+# run the whole pipeline (bronze -> silver -> gold -> opportunities -> security -> patterns)
 python3 scripts/run_pipeline.py
 # or a single layer:
 python3 scripts/run_pipeline.py silver
@@ -571,9 +557,8 @@ Re-running is always safe.
 - **100% synthetic.** No real customer, order, or transaction is represented.
   Findings here are a demonstration of the analysis method, not a claim about
   any real Indian e-commerce business — a real dataset with this schema would
-  need its own data-quality audit from scratch, the same way the clickstream
-  project's audit found a genuine tracking defect that this synthetic one
-  does not have.
+  need its own data-quality audit from scratch rather than assuming the
+  clean results found here.
 - **No cost-of-goods beyond `cost_price`.** Warehousing, last-mile delivery
   cost per shipment, and payment-gateway settlement timing aren't in the
   source data, so `profit` in `order_items` is a simplified margin, not a
@@ -586,18 +571,3 @@ Re-running is always safe.
   seasonality model — the festival-spike and year-over-year growth patterns
   described in the source `README.md` are worth checking against the
   `revenue_trends` table before treating any single month as representative.
-
-## What's different from the clickstream project, and why
-
-| | Clickstream project | This project |
-|---|---|---|
-| Source shape | Raw events, one row per interaction | Relational, 9 pre-joined tables |
-| Scale | 42.4M rows, 5.67GB/month | ~570K rows total, 57MB |
-| Ingestion | Split into <5GiB parts, streamed, verified | Single PUT per file |
-| Data quality | 54% of purchases missing a cart event | 0% failures on all 4 checks |
-| The hard problem | Reconstructing a trustworthy funnel from broken tracking | The data was clean; the work was in the *margin/segment/delivery* cross-cuts a flat table doesn't show on its own |
-
-Both projects prove the same underlying claim: **the medallion pattern and
-the pipeline tooling are not tied to one dataset.** What changes between them
-is the domain-specific business logic in silver/gold and the findings that
-logic surfaces — the scaffolding around it stayed the same.

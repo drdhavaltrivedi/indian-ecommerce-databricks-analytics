@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Snapshot headline metrics after every pipeline run and flag drift.
 
-Built specifically because of a real incident: when November data was added
-to the clickstream project, the cart-tracking gap moved from 53.6% to 32.97%
+Built specifically because of a real incident on a related project: adding a
+second month of data moved a cart-tracking gap from 53.6% to 32.97%
 -- a 20-point swing in the finding's own story, not just a number getting
 bigger with more data. Nothing caught it. It sat undetected in the README and
 docs/INSIGHTS.md until someone asked directly. This script exists so that

@@ -1,7 +1,7 @@
 -- Bronze layer: raw ingestion, minimal transformation, full fidelity.
--- Every column STRING -- same principle as the ecommerce clickstream project:
--- if a downstream number looks wrong, bronze is the reference to check
--- against, and casting at ingest would destroy that evidence.
+-- Every column STRING: if a downstream number looks wrong, bronze is the
+-- reference to check against, and casting at ingest would destroy that
+-- evidence.
 
 CREATE TABLE IF NOT EXISTS indian_ecommerce.bronze.customers (
   customer_id STRING, customer_signup_date STRING, gender STRING, age STRING,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""SQL alerts for the Indian e-commerce pipeline. Same pattern as the
-clickstream project: no schedule, no recipients by default -- both are one
-click in the UI once someone decides to turn them on.
+"""SQL alerts for the Indian e-commerce pipeline. No schedule, no
+recipients by default -- both are one click in the UI once someone decides
+to turn them on.
 """
 import os, sys, json, urllib.request, urllib.error
 

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Create/update an AI/BI Genie space over the Indian e-commerce gold layer.
 
-Same principle as the clickstream project's Genie space: scope it to gold
-only, and give it explicit instructions about the findings that are easy to
+Scoped to gold only, and given explicit instructions about the findings that are easy to
 misread -- otherwise a business user asking "should we discount more?" gets a
 naive answer instead of the nuance the data actually supports.
 """

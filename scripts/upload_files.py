@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Upload small CSVs directly to a UC Volume via a single PUT each.
 
-Unlike the ecommerce (clickstream) project, these files are all well under the
-5GiB Files API limit, so no splitting is needed -- just a plain PUT per file,
-verified by size afterward.
+These files are all well under the 5GiB Files API limit, so no splitting is
+needed -- just a plain PUT per file, verified by size afterward.
 """
 import os, sys, glob, http.client, ssl
 from urllib.parse import urlparse

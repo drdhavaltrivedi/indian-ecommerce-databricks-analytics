@@ -1,7 +1,7 @@
 -- Silver layer: typed, conformed star schema.
--- Unlike the clickstream project, this source data is already relationally
--- consistent (single generator, consistent FKs), so silver here is mostly
--- about typing and deriving a few analysis-ready fields -- not heavy cleanup.
+-- This source data is already relationally consistent (single generator,
+-- consistent FKs), so silver here is mostly about typing and deriving a few
+-- analysis-ready fields -- not heavy cleanup.
 
 CREATE OR REPLACE TABLE indian_ecommerce.silver.dim_customer AS
 SELECT

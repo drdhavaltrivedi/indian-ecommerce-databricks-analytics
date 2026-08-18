@@ -1,6 +1,5 @@
 -- Opportunity analysis: findings that identify a specific fixable problem,
--- size it, and point at a decision -- same principle as the clickstream
--- project's 09_opportunities.sql. The gold.* tables above describe what
+-- size it, and point at a decision. The gold.* tables above describe what
 -- happened; these describe what to do about it.
 
 -- ---------------------------------------------------------------------------
@@ -126,8 +125,9 @@ ORDER BY revenue_per_rupee_spent DESC;
 -- If discounting worked as a cancellation-prevention lever, cancel rate would
 -- fall as discount rises. It does not: cancel rate is flat at ~8% across every
 -- discount band, while AOV drops from Rs 29,033 (no discount) to Rs 21,951
--- (20%+ discount). Same conclusion as the clickstream project's discount
--- finding, reached independently on a completely different dataset.
+-- (20%+ discount). The same shape of result -- discounting not visibly
+-- preventing the behaviour it's meant to prevent -- shows up independently
+-- on unrelated e-commerce datasets, which is worth taking seriously.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE TABLE indian_ecommerce.gold.discount_effectiveness
 COMMENT 'Cancellation rate and AOV by discount band. Cancel rate is flat regardless of discount depth -- discounting is not preventing cancellations, only reducing order value.'

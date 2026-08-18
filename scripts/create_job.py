@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Create/update the scheduled pipeline job for the Indian e-commerce project.
-Same pattern as the clickstream project: SQL-file tasks against the shared
-warehouse, created PAUSED so a script does not start spending someone's
-warehouse budget without them deciding to turn it on.
+SQL-file tasks against the shared warehouse, created PAUSED so a script does
+not start spending someone's warehouse budget without them deciding to turn
+it on.
 """
 import os, sys, json, urllib.request, urllib.error, urllib.parse, base64
 

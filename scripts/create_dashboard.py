@@ -2,9 +2,9 @@
 """Create/update the Lakeview dashboard for the Indian e-commerce project.
 
 Second pass: the first version was a flat grid of same-sized charts with raw
-INR values in the hundreds of millions and a stray '$' left over from the
-clickstream project's widget helpers. Neither is readable at a glance, which
-is the whole point of a dashboard.
+INR values in the hundreds of millions and a stray '$' from an earlier draft
+of the widget helpers. Neither is readable at a glance, which is the whole
+point of a dashboard.
 
 This version:
   - Uses INR (Cr = crore = 1e7) throughout, since the source data is Indian
