@@ -57,7 +57,8 @@ itself informative: see [Data quality](#data-quality) below.
 Same medallion shape as the clickstream project, adapted to a relational
 source: bronze mirrors the 9 CSVs 1:1 (all `STRING`), silver types and
 conforms them into a proper star schema (3 dimensions, 6 fact tables), gold
-holds 16 business-facing tables (11 descriptive + 5 opportunity/diagnostic).
+holds 22 business-facing tables (11 descriptive + 5 opportunity/diagnostic +
+6 pattern-analysis).
 
 Unlike the clickstream project, **no split-upload was needed** — every file
 here is well under the Files API's 5GiB single-PUT limit (largest is
@@ -86,9 +87,10 @@ flowchart TD
         FRV["<b>fact_reviews</b><br/>77,530 rows"]
     end
 
-    subgraph GLD["GOLD — 16 tables"]
+    subgraph GLD["GOLD — 22 tables"]
         GD["<b>Descriptive</b> · 11 tables<br/>revenue_trends · category_performance<br/>segment_performance · channel_performance<br/>campaign_roi · delivery_performance<br/>return_analysis · payment_performance<br/>state_performance · review_integrity · data_quality"]
         GO["<b>Opportunities</b> · 5 tables<br/>product_true_profitability<br/>campaign_targeting_precision<br/>delay_impact_on_experience<br/>channel_efficiency · discount_effectiveness"]
+        GP["<b>Patterns</b> · 6 tables<br/>cohort_retention · rfm_segmentation<br/>category_affinity · seasonality_patterns<br/>repeat_purchase_timing · sentiment_by_category"]
     end
 
     CSV -->|"single PUT per file<br/>(all well under 5GiB limit)"| BE
@@ -115,6 +117,10 @@ flowchart TD
     FR --> GO
     FRV --> GO
     DCP --> GO
+    DC --> GP
+    FO --> GP
+    FOI --> GP
+    FRV --> GP
 
     style BRZ fill:#7a5c1e,stroke:#c89b3c,color:#fff
     style SLV fill:#4a4a52,stroke:#9aa0a6,color:#fff
@@ -414,13 +420,76 @@ Two unrelated datasets landing on the same "discounting isn't proven to work"
 result is worth taking seriously — don't expand discount depth as a
 cancellation-prevention lever without a controlled test.
 
+## Pattern analysis — cohorts, RFM, affinity, seasonality
+
+No free-text review column exists in the source data — only a pre-labeled
+`review_sentiment` category and a numeric `rating`. So this is **not** NLP
+text-mining; it goes deeper on the structured behavioral data instead. Six
+more tables, added in [`sql/06_patterns.sql`](sql/06_patterns.sql):
+
+### Retention decays fast, and unevenly by cohort
+
+`gold.cohort_retention`: a signup cohort's month-1 reorder rate runs
+**~29%**, dropping to **~24%** by month 3. That's a real decay curve, not the
+single flat churn-rate number in `segment_performance` — useful for judging
+whether a lifecycle campaign is working (retention should flatten, not keep
+dropping) rather than only watching total churn.
+
+### RFM independently confirms the segment-vs-churn finding
+
+`gold.rfm_segmentation` computes Recency/Frequency/Monetary scores from raw
+order data — completely independent of the `customer_segment` label already
+on the customer record — then checks whether they agree. Frequency and
+monetary scores **do** sort cleanly by segment (Premium highest, New lowest).
+Recency scores are **nearly flat** across all four segments (2.29–2.69 of 4).
+Two independent methods (this and the churn-rate finding in [Findings §3](#3-customer-segment-predicts-spend-not-survival))
+reach the same conclusion from different data: segment predicts what
+customers spend, not whether they're still active.
+
+### Fashion is the connective category across the whole catalog
+
+`gold.category_affinity`: ranking every pair of categories bought in the same
+order, **Fashion appears in nearly every top pair** — Electronics+Fashion,
+Fashion+Home & Kitchen, Fashion+Health & Wellness, Fashion+Grocery,
+Appliances+Fashion. It isn't just a category with its own revenue line (see
+[Findings §2](#2-revenue-and-margin-point-in-opposite-directions)) — it's the
+natural anchor for cross-category bundling, regardless of what else is in the
+cart.
+
+### Orders nearly triple from January to December — a ramp, not a spike
+
+`gold.seasonality_patterns`: January is the lowest month (5,169 orders),
+December the highest (14,909) — **2.9x**. The steepest single jump is
+Sep→Oct (**+40%**), consistent with the festival season (Navratri/Dussehra/
+Diwali fall in that window per the source dataset's own generation
+methodology) building into year-end. A flat monthly average from
+`revenue_trends` alone would badly under-provision Q4 inventory and delivery
+capacity.
+
+### The median time to a second order is 34 days — use that, not the mean
+
+`gold.repeat_purchase_timing`: **73%** of all customers (18,254 of 25,000)
+eventually place a second order. Median time to that second order is
+**34 days**; the mean is **74 days**, pulled up by a long tail of slow
+repeaters. A "come back" lifecycle email scheduled off the mean would fire
+more than a month late for the typical repeat customer — the median is the
+number to design around.
+
+### Sentiment by category — where fit and quality expectations break down
+
+`gold.sentiment_by_category`, using the structured rating/sentiment fields:
+**Musical Instruments** (15.8% negative) and **Furniture** (13.3% negative)
+lead the negative-review share — categories where sizing, quality
+expectations, or damage-in-transit are hardest to get right without seeing
+the item first.
+
 ## Platform features — full parity with the clickstream project
 
 This project now has the same production layer as the clickstream project,
 built independently against this dataset's own findings:
 
 - **AI/BI Genie** ([`scripts/create_genie_space.py`](scripts/create_genie_space.py)) —
-  16 gold tables, 6 instruction blocks covering the five nuanced findings
+  22 gold tables, 7 instruction blocks covering the nuanced findings
   above (e.g. "delay hurts rating, NOT return rate — never say delay causes
   more returns"). Verified: asked *"Does a delayed delivery cause more
   returns?"*, Genie correctly separated the satisfaction effect from the
@@ -445,6 +514,8 @@ sql/
   03_gold.sql          -- 11 gold tables incl. data_quality
   04_opportunities.sql -- 5 cross-cutting findings, sized and actionable
   05_security.sql      -- PII tags, grain comments on high-risk-join tables
+  06_patterns.sql      -- 6 tables: cohort retention, RFM, category affinity,
+                        seasonality, repeat-purchase timing, sentiment
 scripts/
   upload_files.py     -- single-PUT upload (files here are all <5GiB)
   dbx_sql.py          -- Statement Execution API client (shared pattern)

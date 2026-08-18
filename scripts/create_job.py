@@ -19,6 +19,7 @@ TASKS = [
     ("gold",          "03_gold.sql",         ["silver"]),
     ("opportunities", "04_opportunities.sql", ["silver"]),
     ("security",      "05_security.sql",     ["silver"]),
+    ("patterns",      "06_patterns.sql",     ["silver"]),
 ]
 
 

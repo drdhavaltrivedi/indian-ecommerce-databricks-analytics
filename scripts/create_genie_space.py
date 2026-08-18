@@ -22,6 +22,12 @@ DESCRIPTION = (
 
 TABLES = [
     "indian_ecommerce.gold.campaign_roi",
+    "indian_ecommerce.gold.category_affinity",
+    "indian_ecommerce.gold.cohort_retention",
+    "indian_ecommerce.gold.repeat_purchase_timing",
+    "indian_ecommerce.gold.rfm_segmentation",
+    "indian_ecommerce.gold.seasonality_patterns",
+    "indian_ecommerce.gold.sentiment_by_category",
     "indian_ecommerce.gold.campaign_targeting_precision",
     "indian_ecommerce.gold.category_performance",
     "indian_ecommerce.gold.channel_efficiency",
@@ -74,6 +80,30 @@ INSTRUCTIONS = [
     "refunds are counted -- refund_pct_of_profit above 100 means the product "
     "lost money despite looking profitable. Prefer this table over raw "
     "order_items profit when asked which products are actually profitable.",
+
+    "PATTERN ANALYSIS TABLES. gold.cohort_retention shows signup-month cohorts "
+    "and what pct reordered by month 1/3/6 -- retention decays from about 29% "
+    "at month 1 to about 24% by month 3, not a flat number. "
+    "gold.rfm_segmentation computes RFM scores independently from raw order "
+    "data and averages them by the existing customer_segment label: frequency "
+    "and monetary scores sort cleanly by segment (Premium highest) but "
+    "recency scores are nearly flat across all segments -- this "
+    "INDEPENDENTLY confirms that segment predicts spend, not how recently a "
+    "customer is active, i.e. not churn risk. gold.category_affinity shows "
+    "which categories are bought together in the same order; Fashion appears "
+    "in nearly every top pair and is the natural cross-category bundling "
+    "anchor, not just a category on its own. gold.seasonality_patterns shows "
+    "orders nearly triple from January to December, a steady ramp through "
+    "the festival season (Sep-Nov) into year-end, not a single spike -- "
+    "relevant for inventory and delivery capacity planning. "
+    "gold.repeat_purchase_timing shows a median of 34 days to a customer's "
+    "second order (mean is higher, about 74 days, pulled up by a long tail "
+    "of slow repeaters) -- use the median for lifecycle-email timing, not "
+    "the mean. gold.sentiment_by_category uses the STRUCTURED rating and "
+    "review_sentiment fields; there is no free-text review column in this "
+    "dataset, so never claim to have analyzed review text or done NLP "
+    "sentiment analysis -- say the sentiment data is a pre-labeled category, "
+    "not derived from text.",
 
     "GRAIN AND JOIN RULES. Each gold table is independently aggregated at "
     "its own grain -- do not join gold tables to each other, it will double "

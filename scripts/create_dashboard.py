@@ -133,6 +133,12 @@ datasets = [
     dataset("delay_impact", "SELECT delivery_outcome, avg_rating, return_rate_pct FROM indian_ecommerce.gold.delay_impact_on_experience"),
     dataset("chan_eff", "SELECT channel, revenue_per_rupee_spent FROM indian_ecommerce.gold.channel_efficiency ORDER BY revenue_per_rupee_spent DESC"),
     dataset("discount_eff", "SELECT discount_band, cancel_rate_pct, avg_order_value FROM indian_ecommerce.gold.discount_effectiveness ORDER BY discount_band"),
+    dataset("cohort", "SELECT cohort_month, retention_m1_pct, retention_m3_pct FROM indian_ecommerce.gold.cohort_retention ORDER BY cohort_month"),
+    dataset("rfm", "SELECT customer_segment, avg_recency_score, avg_frequency_score, avg_monetary_score FROM indian_ecommerce.gold.rfm_segmentation ORDER BY avg_monetary_score DESC"),
+    dataset("affinity", "SELECT CONCAT(category_a,' + ',category_b) AS pair, orders_together FROM indian_ecommerce.gold.category_affinity ORDER BY orders_together DESC LIMIT 8"),
+    dataset("season", "SELECT month_name, orders FROM indian_ecommerce.gold.seasonality_patterns ORDER BY month_num"),
+    dataset("repeat_timing", "SELECT pct_repeat_at_least_once, avg_days_to_2nd_order, median_days_to_2nd_order FROM indian_ecommerce.gold.repeat_purchase_timing"),
+    dataset("sentiment_cat", "SELECT category, avg_rating, pct_negative FROM indian_ecommerce.gold.sentiment_by_category ORDER BY pct_negative DESC LIMIT 8"),
 ]
 
 widgets = [
@@ -230,6 +236,28 @@ widgets = [
 
     pos(chart("discount_cancel", "discount_eff", "discount_band", "cancel_rate_pct",
               "Cancel Rate % by Discount Band — flat, discounting doesn't prevent cancellations"), 0, 80, 6, 6),
+
+    # -------------------------------------------------------------- patterns
+    pos(markdown("h_patterns", "## Pattern Analysis — Cohorts, RFM, Affinity, Seasonality"), 0, 86, 6, 1),
+    pos(markdown("n_patterns",
+        "*No free-text reviews exist in this dataset, so sentiment analysis "
+        "below uses the structured rating/sentiment fields, not NLP on text. "
+        "Everything else is derived purely from order behaviour.*"), 0, 87, 6, 1),
+
+    pos(chart("cohort_chart", "cohort", "cohort_month", "retention_m1_pct",
+              "Month-1 Retention % by Signup Cohort", widget_type="line", scale_x="temporal"), 0, 88, 3, 6),
+    pos(chart("rfm_chart", "rfm", "customer_segment", "avg_recency_score",
+              "RFM Recency Score by Segment — flat, unlike frequency/monetary"), 3, 88, 3, 6),
+
+    pos(chart("affinity_chart", "affinity", "pair", "orders_together",
+              "Top Category Pairs Bought Together (Fashion is the connector)"), 0, 94, 3, 7),
+    pos(chart("season_chart", "season", "month_name", "orders",
+              "Orders by Calendar Month — nearly 3x Jan to Dec", scale_x="categorical", sort_desc=False), 3, 94, 3, 7),
+
+    pos(counter("c_repeat_pct", "repeat_timing", "pct_repeat_at_least_once", "% Customers Who Ever Repeat-Purchase"), 0, 101, 2, 3),
+    pos(counter("c_median_days", "repeat_timing", "median_days_to_2nd_order", "Median Days to 2nd Order"), 2, 101, 2, 3),
+    pos(chart("sentiment_chart", "sentiment_cat", "category", "pct_negative",
+              "% Negative Reviews by Category (worst 8)"), 4, 101, 2, 6),
 ]
 
 serialized = {
