@@ -214,18 +214,115 @@ fix: a sizing guide addresses "Size issue" only, better packaging addresses
 double problem — the category with the thinnest revenue is also absorbing
 concentrated return costs.
 
+## Opportunities — cross-cutting findings that answer "what do we do"
+
+The gold tables above answer "what happened." Five more, added in
+[`sql/04_opportunities.sql`](sql/04_opportunities.sql), cross-cut them to
+answer "what's broken and what's it worth" — the same category of analysis
+as the clickstream project's `09_opportunities.sql`, applied independently to
+this dataset's own shape.
+
+### Products that look profitable but are net losses after returns
+
+`gold.product_true_profitability` nets refunds against gross profit, per
+product. Several products clear ₹80K–₹980K in recorded profit while refunds
+run **250–2,250% of that profit** — a "Basic Large Appliance" shows ₹980,618
+profit against ₹4,975,142 refunded. A standard product P&L (`order_items`
+alone) never nets against returns, so these read as winners until you ask
+the second question.
+
+**What to do**: report `net_profit_after_refunds`, not `gross_profit`, in any
+product ranking. Any product with `refund_pct_of_profit > 100` needs a
+root-cause look (quality, sizing, description accuracy) before further
+marketing spend.
+
+### Campaign targeting barely reaches its target segment
+
+`gold.campaign_targeting_precision`: campaigns aimed at "New" customers reach
+New customers **3.98%** of the time. Even the best case — Regular-targeted
+campaigns reaching Regular customers — is **52.32%**, barely better than
+chance across four segments.
+
+**What to do**: audit the targeting mechanism itself (audience list build,
+segment sync timing) before spending more on segment-specific creative — the
+creative isn't the problem if it never reaches the intended audience.
+
+### Delivery delay hurts satisfaction, not the return rate
+
+`gold.delay_impact_on_experience`: a delayed shipment drops average review
+rating from **3.90 to 3.34** — a real, meaningful gap — but return rate is
+almost unchanged (**10.08% vs 10.45%**). These are different costs: delay
+does not create direct refund exposure, it creates a reputation and
+repeat-purchase risk that a return-rate KPI alone would completely miss.
+
+**What to do**: track review rating and repeat-purchase rate as delivery KPIs
+alongside return rate, not as an afterthought. A dashboard that only watches
+returns will miss this entirely.
+
+### Marketing channels return wildly different value per rupee spent
+
+`gold.channel_efficiency`: Direct/App returns **₹6.20** in attributed revenue
+per ₹1 of campaign cost. Facebook returns **₹1.08** — barely break-even. A
+**5.7x efficiency gap** inside one marketing budget.
+
+**What to do**: this is a budget-reallocation question, not a creative
+question. Before optimizing Facebook campaigns, ask whether that spend is
+better moved to Direct/App and Organic Search, which are already outperforming
+by 5x+.
+
+### Heavier discounts don't reduce cancellations — they just cost more
+
+`gold.discount_effectiveness`: cancellation rate is flat at **~8%** across
+every discount band, while average order value falls from ₹29,033 (no
+discount) to ₹21,951 (20%+ discount). If discounting were preventing
+cancellations, the cancel rate would fall as discount rises — it doesn't.
+
+**What to do**: this is the same conclusion the clickstream project reached
+independently on a completely different dataset (see its
+[`docs/OPPORTUNITIES.md`](https://github.com/drdhavaltrivedi/ecommerce-databricks-lakehouse/blob/main/docs/OPPORTUNITIES.md)).
+Two unrelated datasets landing on the same "discounting isn't proven to work"
+result is worth taking seriously — don't expand discount depth as a
+cancellation-prevention lever without a controlled test.
+
+## Platform features — full parity with the clickstream project
+
+This project now has the same production layer as the clickstream project,
+built independently against this dataset's own findings:
+
+- **AI/BI Genie** ([`scripts/create_genie_space.py`](scripts/create_genie_space.py)) —
+  16 gold tables, 6 instruction blocks covering the five nuanced findings
+  above (e.g. "delay hurts rating, NOT return rate — never say delay causes
+  more returns"). Verified: asked *"Does a delayed delivery cause more
+  returns?"*, Genie correctly separated the satisfaction effect from the
+  return-rate non-effect, unprompted.
+- **Scheduled job** ([`scripts/create_job.py`](scripts/create_job.py)) —
+  5-task pipeline (bronze → silver → gold/opportunities/security), created
+  **paused**.
+- **3 SQL alerts** ([`scripts/create_alerts.py`](scripts/create_alerts.py)) —
+  gold freshness (>36h), Same-Day delay regression (>65%, baseline ~54-60%),
+  and a referential-integrity regression (>1%, baseline 0%). No recipients by
+  default.
+- **PII tagging + governance** ([`sql/05_security.sql`](sql/05_security.sql)) —
+  `customer_id`, `city`, `pincode_prefix` tagged as personal/location data;
+  grain comments on the tables most likely to be misjoined.
+
 ## Repo layout
 
 ```
 sql/
-  01_bronze.sql   -- 9 raw tables + COPY INTO from the UC volume
-  02_silver.sql   -- typed star schema
-  03_gold.sql     -- 11 gold tables incl. data_quality
+  01_bronze.sql        -- 9 raw tables + COPY INTO from the UC volume
+  02_silver.sql        -- typed star schema
+  03_gold.sql          -- 11 gold tables incl. data_quality
+  04_opportunities.sql -- 5 cross-cutting findings, sized and actionable
+  05_security.sql      -- PII tags, grain comments on high-risk-join tables
 scripts/
-  upload_files.py    -- single-PUT upload (files here are all <5GiB)
-  dbx_sql.py         -- Statement Execution API client (shared pattern)
-  run_sql_file.py    -- runs a .sql file statement by statement
+  upload_files.py     -- single-PUT upload (files here are all <5GiB)
+  dbx_sql.py          -- Statement Execution API client (shared pattern)
+  run_sql_file.py     -- runs a .sql file statement by statement
   create_dashboard.py -- Lakeview dashboard, create-or-update
+  create_genie_space.py -- AI/BI Genie space with nuance-aware instructions
+  create_job.py       -- scheduled Workflow (created PAUSED)
+  create_alerts.py    -- 3 SQL alerts (no recipients by default)
 ```
 
 ## Running it
