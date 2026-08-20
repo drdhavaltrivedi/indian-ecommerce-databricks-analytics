@@ -79,3 +79,92 @@ COPY INTO indian_ecommerce.bronze.customer_reviews FROM '/Volumes/indian_ecommer
   FILEFORMAT = CSV FORMAT_OPTIONS ('header'='true');
 COPY INTO indian_ecommerce.bronze.marketing_campaigns FROM '/Volumes/indian_ecommerce/bronze/raw_files/marketing_campaigns.csv'
   FILEFORMAT = CSV FORMAT_OPTIONS ('header'='true');
+
+-- ---------------------------------------------------------------------------
+-- Bronze validation: does NOT filter or touch bronze itself (bronze stays
+-- raw, full-fidelity STRING, by design -- see header comment). This only
+-- counts, per source table and column, how many rows fail to parse as their
+-- expected type or violate an obvious sanity rule. On this dataset every
+-- count should be 0; the point is to catch a future data refresh with dirty
+-- values here, in bronze, before silver's TRY_CAST-based filters silently
+-- drop them and gold's numbers just look a little different with no
+-- visible cause.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE TABLE indian_ecommerce.bronze.validation_log
+COMMENT 'Row counts per bronze table/column that fail to parse as their target type or an obvious sanity rule (non-negative price, 1-5 rating, etc). Bronze rows are never dropped -- this is a read-only pre-check for silver.'
+AS
+SELECT 'customers' AS source_table, 'customer_id' AS column_name, 'not_null_or_blank' AS rule,
+       COUNT(*) AS failed_rows
+FROM indian_ecommerce.bronze.customers WHERE customer_id IS NULL OR TRIM(customer_id) = ''
+UNION ALL
+SELECT 'customers', 'customer_signup_date', 'parses_as_date', COUNT(*)
+FROM indian_ecommerce.bronze.customers
+WHERE customer_signup_date IS NOT NULL AND TRY_CAST(customer_signup_date AS DATE) IS NULL
+UNION ALL
+SELECT 'products', 'product_id', 'not_null_or_blank', COUNT(*)
+FROM indian_ecommerce.bronze.products WHERE product_id IS NULL OR TRIM(product_id) = ''
+UNION ALL
+SELECT 'products', 'price', 'parses_as_nonneg_double', COUNT(*)
+FROM indian_ecommerce.bronze.products
+WHERE price IS NOT NULL
+  AND (TRY_CAST(price AS DOUBLE) IS NULL OR TRY_CAST(price AS DOUBLE) < 0)
+UNION ALL
+SELECT 'products', 'cost_price', 'parses_as_nonneg_double', COUNT(*)
+FROM indian_ecommerce.bronze.products
+WHERE cost_price IS NOT NULL
+  AND (TRY_CAST(cost_price AS DOUBLE) IS NULL OR TRY_CAST(cost_price AS DOUBLE) < 0)
+UNION ALL
+SELECT 'orders', 'order_id', 'not_null_or_blank', COUNT(*)
+FROM indian_ecommerce.bronze.orders WHERE order_id IS NULL OR TRIM(order_id) = ''
+UNION ALL
+SELECT 'orders', 'order_date', 'parses_as_date', COUNT(*)
+FROM indian_ecommerce.bronze.orders
+WHERE order_date IS NOT NULL AND TRY_CAST(order_date AS DATE) IS NULL
+UNION ALL
+SELECT 'orders', 'final_amount', 'parses_as_nonneg_double', COUNT(*)
+FROM indian_ecommerce.bronze.orders
+WHERE final_amount IS NOT NULL
+  AND (TRY_CAST(final_amount AS DOUBLE) IS NULL OR TRY_CAST(final_amount AS DOUBLE) < 0)
+UNION ALL
+SELECT 'orders', 'discount_percentage', 'parses_as_pct_0_100', COUNT(*)
+FROM indian_ecommerce.bronze.orders
+WHERE discount_percentage IS NOT NULL
+  AND (TRY_CAST(discount_percentage AS DOUBLE) IS NULL
+       OR TRY_CAST(discount_percentage AS DOUBLE) NOT BETWEEN 0 AND 100)
+UNION ALL
+SELECT 'order_items', 'order_item_id', 'not_null_or_blank', COUNT(*)
+FROM indian_ecommerce.bronze.order_items WHERE order_item_id IS NULL OR TRIM(order_item_id) = ''
+UNION ALL
+SELECT 'order_items', 'quantity', 'parses_as_positive_int', COUNT(*)
+FROM indian_ecommerce.bronze.order_items
+WHERE quantity IS NOT NULL
+  AND (TRY_CAST(quantity AS INT) IS NULL OR TRY_CAST(quantity AS INT) <= 0)
+UNION ALL
+SELECT 'payments', 'payment_id', 'not_null_or_blank', COUNT(*)
+FROM indian_ecommerce.bronze.payments WHERE payment_id IS NULL OR TRIM(payment_id) = ''
+UNION ALL
+SELECT 'payments', 'order_id', 'not_null_or_blank', COUNT(*)
+FROM indian_ecommerce.bronze.payments WHERE order_id IS NULL OR TRIM(order_id) = ''
+UNION ALL
+SELECT 'shipments', 'shipment_id', 'not_null_or_blank', COUNT(*)
+FROM indian_ecommerce.bronze.shipments WHERE shipment_id IS NULL OR TRIM(shipment_id) = ''
+UNION ALL
+SELECT 'shipments', 'delivery_days', 'parses_as_nonneg_double', COUNT(*)
+FROM indian_ecommerce.bronze.shipments
+WHERE delivery_days IS NOT NULL
+  AND (TRY_CAST(delivery_days AS DOUBLE) IS NULL OR TRY_CAST(delivery_days AS DOUBLE) < 0)
+UNION ALL
+SELECT 'returns', 'return_id', 'not_null_or_blank', COUNT(*)
+FROM indian_ecommerce.bronze.returns WHERE return_id IS NULL OR TRIM(return_id) = ''
+UNION ALL
+SELECT 'customer_reviews', 'review_id', 'not_null_or_blank', COUNT(*)
+FROM indian_ecommerce.bronze.customer_reviews WHERE review_id IS NULL OR TRIM(review_id) = ''
+UNION ALL
+SELECT 'customer_reviews', 'rating', 'parses_as_int_1_to_5', COUNT(*)
+FROM indian_ecommerce.bronze.customer_reviews
+WHERE rating IS NOT NULL
+  AND (TRY_CAST(rating AS INT) IS NULL OR TRY_CAST(rating AS INT) NOT BETWEEN 1 AND 5)
+UNION ALL
+SELECT 'marketing_campaigns', 'campaign_id', 'not_null_or_blank', COUNT(*)
+FROM indian_ecommerce.bronze.marketing_campaigns WHERE campaign_id IS NULL OR TRIM(campaign_id) = ''
+ORDER BY failed_rows DESC;

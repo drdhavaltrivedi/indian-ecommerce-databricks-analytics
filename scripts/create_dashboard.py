@@ -75,13 +75,23 @@ def chart(name, ds, x, y, title, widget_type="bar", scale_x="categorical", sort_
 
 
 def table(name, ds, columns, title):
+    # The minimal column spec ({"fieldName", "displayName"}) renders as
+    # "Visualization has no fields selected" in Lakeview -- table widgets
+    # need each column's type/display/order made explicit, unlike counter
+    # and chart widgets where a minimal encodings block is enough.
     return {"widget": {
         "name": name,
         "queries": [{"name": "main_query", "query": {
             "datasetName": ds, "fields": [{"name": c, "expression": f"`{c}`"} for c in columns],
             "disaggregated": True}}],
         "spec": {"version": 1, "widgetType": "table",
-                 "encodings": {"columns": [{"fieldName": c, "displayName": c} for c in columns]},
+                 "encodings": {"columns": [
+                     {"fieldName": c, "title": c, "type": "string", "displayAs": "string",
+                      "visible": True, "order": i, "alignContent": "left",
+                      "allowSearch": False, "allowHTML": False, "highlightLinks": False,
+                      "useMonospaceFont": False, "preserveWhitespace": False}
+                     for i, c in enumerate(columns)
+                 ]},
                  "frame": {"title": title, "showTitle": True}},
     }}
 
@@ -110,7 +120,7 @@ datasets = [
     """),
     dataset("category", """
         SELECT category, ROUND(revenue/1e7,1) AS revenue_cr, margin_pct
-        FROM indian_ecommerce.gold.category_performance ORDER BY revenue_cr DESC
+        FROM indian_ecommerce.gold.category_performance ORDER BY revenue_cr DESC LIMIT 10
     """),
     dataset("segment", "SELECT customer_segment, ROUND(avg_lifetime_spend/1000,1) AS avg_lifetime_spend_k, churn_rate_pct FROM indian_ecommerce.gold.segment_performance"),
     dataset("channel", "SELECT marketing_channel, ROUND(revenue/1e7,1) AS revenue_cr FROM indian_ecommerce.gold.channel_performance ORDER BY revenue_cr DESC"),
@@ -136,7 +146,7 @@ datasets = [
     dataset("cohort", "SELECT cohort_month, retention_m1_pct, retention_m3_pct FROM indian_ecommerce.gold.cohort_retention ORDER BY cohort_month"),
     dataset("rfm", "SELECT customer_segment, avg_recency_score, avg_frequency_score, avg_monetary_score FROM indian_ecommerce.gold.rfm_segmentation ORDER BY avg_monetary_score DESC"),
     dataset("affinity", "SELECT CONCAT(category_a,' + ',category_b) AS pair, orders_together FROM indian_ecommerce.gold.category_affinity ORDER BY orders_together DESC LIMIT 8"),
-    dataset("season", "SELECT month_name, orders FROM indian_ecommerce.gold.seasonality_patterns ORDER BY month_num"),
+    dataset("season", "SELECT CONCAT(LPAD(month_num,2,'0'), ' - ', month_name) AS month_name, orders FROM indian_ecommerce.gold.seasonality_patterns ORDER BY month_num"),
     dataset("repeat_timing", "SELECT pct_repeat_at_least_once, avg_days_to_2nd_order, median_days_to_2nd_order FROM indian_ecommerce.gold.repeat_purchase_timing"),
     dataset("sentiment_cat", "SELECT category, avg_rating, pct_negative FROM indian_ecommerce.gold.sentiment_by_category ORDER BY pct_negative DESC LIMIT 8"),
 ]
@@ -213,7 +223,7 @@ widgets = [
     pos(markdown("h_geo", "## Geography & Data Quality"), 0, 57, 6, 1),
     pos(chart("state_rev", "state", "delivery_state", "revenue_cr",
               "Revenue by State (₹ Cr, top 10)"), 0, 58, 3, 7),
-    pos(table("dq_table", "dq", ["check_name", "description", "affected_rows", "pct_affected"],
+    pos(chart("dq_chart", "dq", "check_name", "pct_affected",
               "Data Quality Checks — all clean (synthetic, single-generator data)"), 3, 58, 3, 7),
 
     # ------------------------------------------------------ opportunities
@@ -223,8 +233,7 @@ widgets = [
         "\"what should we actually do,\" not just \"what happened.\" "
         "Each is backed by a table that rebuilds every pipeline run.*"), 0, 66, 6, 1),
 
-    pos(table("true_profit_table", "true_profit",
-              ["product_name", "category", "gross_profit", "total_refunded", "refund_pct_of_profit"],
+    pos(chart("true_profit_chart", "true_profit", "product_name", "refund_pct_of_profit",
               "Products That Look Profitable But Are Net Losses After Returns"), 0, 67, 3, 7),
     pos(chart("targeting_chart", "targeting", "target_segment", "targeting_precision_pct",
               "Campaign Targeting Precision % (worst: New at 4%)"), 3, 67, 3, 7),

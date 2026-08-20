@@ -169,6 +169,27 @@ failed_orders_with_payment AS (
 ),
 zero_amount AS (
   SELECT COUNT(*) AS n FROM indian_ecommerce.silver.fact_orders WHERE final_amount = 0
+),
+future_dated_orders AS (
+  SELECT COUNT(*) AS n FROM indian_ecommerce.silver.fact_orders WHERE order_date > CURRENT_DATE()
+),
+delivery_before_dispatch AS (
+  SELECT COUNT(*) AS n
+  FROM indian_ecommerce.silver.fact_shipments
+  WHERE actual_delivery_date IS NOT NULL AND dispatch_date IS NOT NULL
+    AND actual_delivery_date < dispatch_date
+),
+duplicate_order_ids AS (
+  SELECT COUNT(*) AS n FROM (
+    SELECT order_id FROM indian_ecommerce.silver.fact_orders
+    GROUP BY order_id HAVING COUNT(*) > 1
+  )
+),
+orphaned_order_items AS (
+  SELECT COUNT(*) AS n
+  FROM indian_ecommerce.silver.fact_order_items oi
+  LEFT JOIN indian_ecommerce.silver.dim_product p ON p.product_id = oi.product_id
+  WHERE p.product_id IS NULL
 )
 SELECT 'orders_without_payment' AS check_name,
        'Orders with no matching payment record' AS description,
@@ -196,5 +217,33 @@ SELECT 'zero_final_amount',
        n,
        ROUND(n * 100.0 / (SELECT total_orders FROM totals), 2)
 FROM zero_amount
+
+UNION ALL
+SELECT 'future_dated_orders',
+       'Orders with an order_date after today -- impossible, flags a source or type-parsing bug',
+       n,
+       ROUND(n * 100.0 / (SELECT total_orders FROM totals), 2)
+FROM future_dated_orders
+
+UNION ALL
+SELECT 'delivery_before_dispatch',
+       'Shipments where actual_delivery_date is before dispatch_date -- impossible sequence',
+       n,
+       ROUND(n * 100.0 / (SELECT COUNT(*) FROM indian_ecommerce.silver.fact_shipments), 2)
+FROM delivery_before_dispatch
+
+UNION ALL
+SELECT 'duplicate_order_ids',
+       'order_id values appearing more than once in fact_orders -- breaks the star-schema PK assumption',
+       n,
+       ROUND(n * 100.0 / (SELECT total_orders FROM totals), 2)
+FROM duplicate_order_ids
+
+UNION ALL
+SELECT 'orphaned_order_items',
+       'Order line items referencing a product_id not present in dim_product',
+       n,
+       ROUND(n * 100.0 / (SELECT COUNT(*) FROM indian_ecommerce.silver.fact_order_items), 2)
+FROM orphaned_order_items
 
 ORDER BY pct_affected DESC;

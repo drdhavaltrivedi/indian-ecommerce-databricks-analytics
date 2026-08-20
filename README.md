@@ -50,10 +50,79 @@ directly in [Data quality](#data-quality) below rather than assumed.
 
 ## Architecture
 
+### Platform overview
+
+The whole system, end to end — ingestion through consumption and ops —
+not just the data pipeline:
+
+```mermaid
+flowchart TB
+    subgraph EXT["EXTERNAL"]
+        KG["Kaggle dataset<br/>9 CSVs, ~57MB"]
+    end
+
+    subgraph UC["UNITY CATALOG — indian_ecommerce"]
+        VOL["<b>Volume</b><br/>bronze/raw_files<br/>staged CSVs"]
+
+        subgraph MED["Medallion (Delta Lake)"]
+            direction LR
+            BZ["<b>bronze</b><br/>9 tables, 1:1, all STRING<br/>+ validation_log"]
+            SL["<b>silver</b><br/>star schema, 3 dim + 6 fact<br/>TRY_CAST + WHERE-filtered<br/>+ validation_rejects"]
+            GL["<b>gold</b><br/>22 tables<br/>descriptive + opportunity + pattern<br/>+ data_quality (8 checks)"]
+            BZ -->|"TRY_CAST, filter,<br/>conform"| SL
+            SL -->|"aggregate,<br/>join, derive"| GL
+        end
+
+        subgraph GOV["Governance"]
+            PII["PII tags<br/>customer_id · city · pincode"]
+            GRAIN["Grain comments<br/>on high-risk-join tables"]
+        end
+    end
+
+    subgraph COMPUTE["COMPUTE"]
+        WH["Serverless SQL Warehouse<br/>runs every layer + all consumption"]
+    end
+
+    subgraph CONSUME["CONSUMPTION"]
+        DASH["Lakeview Dashboard<br/>create_dashboard.py"]
+        GENIE["AI/BI Genie Space<br/>22 tables, 7 instruction blocks"]
+    end
+
+    subgraph OPS["OPERATIONS"]
+        JOB["Scheduled Job<br/>5-task Workflow — PAUSED"]
+        ALERT["3 SQL Alerts<br/>freshness · delay regression · FK integrity"]
+        METRICS["ops.metrics_history<br/>drift check per pipeline run"]
+    end
+
+    KG -->|"single PUT<br/>per file"| VOL
+    VOL -->|"COPY INTO,<br/>one stmt/table"| BZ
+    GL --- GOV
+    WH -.->|executes| MED
+    WH -.->|executes| DASH
+    WH -.->|executes| GENIE
+    GL --> DASH
+    GL --> GENIE
+    JOB -->|"runs bronze→silver→gold<br/>→opportunities→security"| MED
+    JOB --> METRICS
+    GL --> ALERT
+
+    style EXT fill:#2d3748,stroke:#718096,color:#fff
+    style UC fill:#1a2332,stroke:#4a5568,color:#fff
+    style MED fill:#3d3320,stroke:#c89b3c,color:#fff
+    style GOV fill:#3a2a2a,stroke:#a05252,color:#fff
+    style COMPUTE fill:#243024,stroke:#5a8a5a,color:#fff
+    style CONSUME fill:#1e2a3a,stroke:#4a7ab0,color:#fff
+    style OPS fill:#2e2438,stroke:#8a5ab0,color:#fff
+```
+
 A medallion pipeline adapted to a relational source: bronze mirrors the 9
-CSVs 1:1 (all `STRING`), silver types and conforms them into a proper star
-schema (3 dimensions, 6 fact tables), gold holds 22 business-facing tables
-(11 descriptive + 5 opportunity/diagnostic + 6 pattern-analysis).
+CSVs 1:1 (all `STRING`, plus a read-only `validation_log` of parse/sanity
+failures), silver types and conforms them into a proper star schema (3
+dimensions, 6 fact tables) using `TRY_CAST` and `WHERE` filters so a bad row
+is rejected and counted rather than propagated as a silent `NULL`, gold holds
+22 business-facing tables (11 descriptive + 5 opportunity/diagnostic + 6
+pattern-analysis) including `data_quality`, 8 referential and business-rule
+checks. See [Data quality](#data-quality) for what each layer catches.
 
 Every source file here is well under the Files API's 5GiB single-PUT limit
 (largest is `order_items.csv` at 17MB), so ingestion is a single `PUT` per
@@ -214,8 +283,16 @@ directly.
 
 ## Data quality
 
-Referential integrity between orders/payments/shipments, and a sanity check
-on zero-value orders:
+Validation runs at all three layers, not just as a gold-layer afterthought —
+each layer catches a different failure mode:
+
+| Layer | Table | What it catches |
+|---|---|---|
+| Bronze | [`bronze.validation_log`](sql/01_bronze.sql) | Per-column parse/sanity failures (non-null keys, dates that parse, non-negative prices, ratings in 1-5) — counted only, bronze rows are never dropped |
+| Silver | [`silver.validation_rejects`](sql/02_silver.sql) | Bronze row count vs. silver row count per table — nonzero means a `WHERE` filter (null key, negative amount, out-of-range discount, future order date, non-positive quantity) rejected a row on the last run |
+| Gold | [`gold.data_quality`](sql/03_gold.sql) | Cross-table referential and business-rule checks — the four below, plus four new ones added in this pass |
+
+The original four referential/sanity checks, verified clean on this dataset:
 
 | Check | Affected | % |
 |---|---|---|
@@ -224,12 +301,27 @@ on zero-value orders:
 | Failed orders with a successful payment | 0 | 0.00% |
 | Orders with `final_amount = 0` | 0 | 0.00% |
 
-**All four checks came back clean.** That's the expected result for a
+**All four came back clean.** That's the expected result for a
 single-generator synthetic dataset with enforced FK consistency — worth
 verifying explicitly rather than assuming, because "the schema looks
 structured" is not the same claim as "the data is internally consistent."
 Every finding below rests on that verification, not on an assumption about
 synthetic data being inherently clean.
+
+Four more checks were added to `gold.data_quality` in this pass — they run on
+the next pipeline execution, same as the four above:
+
+| Check | What it means if nonzero |
+|---|---|
+| `future_dated_orders` | An order dated after today — impossible, flags a source or `TRY_CAST` bug |
+| `delivery_before_dispatch` | A shipment delivered before it dispatched — impossible sequence |
+| `duplicate_order_ids` | `order_id` isn't actually unique — breaks the star-schema PK assumption every join above relies on |
+| `orphaned_order_items` | A line item's `product_id` has no row in `dim_product` — silent join loss in any query that inner-joins to products |
+
+On this dataset all eight are expected to read 0 (silver's own filters
+already reject the malformed rows these would have caught) — the value of
+having them in gold is that they'd surface immediately, with a table and
+column name attached, the moment a future data refresh isn't as clean.
 
 ## Findings
 
@@ -491,9 +583,12 @@ the item first.
 
 ```
 sql/
-  01_bronze.sql        -- 9 raw tables + COPY INTO from the UC volume
-  02_silver.sql        -- typed star schema
-  03_gold.sql          -- 11 gold tables incl. data_quality
+  01_bronze.sql        -- 9 raw tables + COPY INTO from the UC volume,
+                        -- + validation_log (parse/sanity checks, read-only)
+  02_silver.sql        -- typed star schema, TRY_CAST + WHERE-filtered,
+                        -- + validation_rejects (bronze vs. silver row counts)
+  03_gold.sql          -- 11 gold tables incl. data_quality (8 checks:
+                        -- 4 referential + 4 business-rule)
   04_opportunities.sql -- 5 cross-cutting findings, sized and actionable
   05_security.sql      -- PII tags, grain comments on high-risk-join tables
   06_patterns.sql      -- 6 tables: cohort retention, RFM, category affinity,
