@@ -170,118 +170,140 @@ widgets = [
         "runs 54–60% delayed on that service tier — see the Delivery "
         "Operations section below."), 0, 8, 6, 1),
 
+    pos(markdown("monitoring_status",
+        "**Monitoring status** (3 SQL alerts, evaluated daily 06:00 UTC, "
+        "email dhaval.m@brilworks.com on breach): "
+        "Same-Day delay 56.0% — alert fires above 65% (9pt headroom) · "
+        "Data quality worst check 0.00% — alert fires above 1% · "
+        "Gold freshness — alert fires if no new pipeline run in 36h."),
+        0, 9, 6, 1),
+
     # --------------------------------------------------------- revenue trend
-    pos(markdown("h_revenue", "## Revenue & Order Volume Over Time"), 0, 9, 6, 1),
+    pos(markdown("h_revenue", "## Revenue & Order Volume Over Time"), 0, 10, 6, 1),
     pos(chart("rev_trend", "revenue_trend", "month", "revenue_cr",
-              "Monthly Revenue (₹ Cr)", widget_type="line", scale_x="temporal"), 0, 10, 3, 7),
+              "Monthly Revenue (₹ Cr)", widget_type="line", scale_x="temporal"), 0, 11, 3, 7),
     pos(chart("orders_trend", "revenue_trend", "month", "orders",
-              "Monthly Order Count", widget_type="line", scale_x="temporal"), 3, 10, 3, 7),
+              "Monthly Order Count", widget_type="line", scale_x="temporal"), 3, 11, 3, 7),
 
     # ------------------------------------------------------------- category
-    pos(markdown("h_category", "## Category Performance — Revenue vs. Margin"), 0, 17, 6, 1),
+    pos(markdown("h_category", "## Category Performance — Revenue vs. Margin"), 0, 18, 6, 1),
     pos(markdown("n_category",
         "*Electronics drives the most revenue but returns under 1% margin. "
         "Fashion earns 33% margin on a fraction of the revenue. A revenue-only "
-        "view misses which category is actually profitable.*"), 0, 18, 6, 1),
-    pos(chart("cat_rev", "category", "category", "revenue_cr", "Revenue by Category (₹ Cr)"), 0, 19, 3, 7),
-    pos(chart("cat_margin", "category", "category", "margin_pct", "Margin % by Category"), 3, 19, 3, 7),
+        "view misses which category is actually profitable.*"), 0, 19, 6, 1),
+    pos(chart("cat_rev", "category", "category", "revenue_cr", "Revenue by Category (₹ Cr)"), 0, 20, 3, 7),
+    pos(chart("cat_margin", "category", "category", "margin_pct", "Margin % by Category"), 3, 20, 3, 7),
 
     # -------------------------------------------------------------- segment
-    pos(markdown("h_segment", "## Customer Segments — Spend vs. Retention"), 0, 26, 6, 1),
+    pos(markdown("h_segment", "## Customer Segments — Spend vs. Retention"), 0, 27, 6, 1),
     pos(markdown("n_segment",
         "*Segment predicts lifetime spend well (12.8x range, Premium to New) but "
         "predicts churn barely at all — three of four segments sit within "
-        "3 points of each other. Don't use segment as a churn model input.*"), 0, 27, 6, 1),
+        "3 points of each other. Don't use segment as a churn model input.*"), 0, 28, 6, 1),
     pos(chart("seg_spend", "segment", "customer_segment", "avg_lifetime_spend_k",
-              "Avg Lifetime Spend by Segment (₹ '000)"), 0, 28, 3, 6),
+              "Avg Lifetime Spend by Segment (₹ '000)"), 0, 29, 3, 6),
     pos(chart("seg_churn", "segment", "customer_segment", "churn_rate_pct",
-              "Churn Rate % by Segment"), 3, 28, 3, 6),
+              "Churn Rate % by Segment"), 3, 29, 3, 6),
 
     # ----------------------------------------------------------- marketing
-    pos(markdown("h_marketing", "## Marketing Channels & Campaign ROI"), 0, 34, 6, 1),
+    pos(markdown("h_marketing", "## Marketing Channels & Campaign ROI"), 0, 35, 6, 1),
     pos(chart("channel_rev", "channel", "marketing_channel", "revenue_cr",
-              "Revenue by Marketing Channel (₹ Cr)"), 0, 35, 3, 6),
+              "Revenue by Marketing Channel (₹ Cr)"), 0, 36, 3, 6),
     pos(chart("campaign_roi", "campaigns", "campaign_name", "roi",
-              "Top 10 Campaigns by ROI"), 3, 35, 3, 6),
+              "Top 10 Campaigns by ROI"), 3, 36, 3, 6),
 
     # ----------------------------------------------------------- operations
-    pos(markdown("h_delivery", "## Delivery Operations — Where Delays Happen"), 0, 41, 6, 1),
+    pos(markdown("h_delivery", "## Delivery Operations — Where Delays Happen"), 0, 42, 6, 1),
     pos(markdown("n_delivery",
         "*Delay rate clusters at 54–60% for Same-Day across every warehouse. "
         "That consistency rules out one bad city — the service tier itself "
-        "is the problem.*"), 0, 42, 6, 1),
+        "is the problem.*"), 0, 43, 6, 1),
     pos(chart("delivery_delay", "delivery", "route", "delay_rate_pct",
-              "Delivery Delay % by Warehouse × Method (worst 12)"), 0, 43, 6, 7),
+              "Delivery Delay % by Warehouse × Method (worst 12)"), 0, 44, 6, 7),
 
     # ------------------------------------------------------- payments/returns
-    pos(markdown("h_pay_ret", "## Payments & Returns"), 0, 50, 6, 1),
+    pos(markdown("h_pay_ret", "## Payments & Returns"), 0, 51, 6, 1),
     pos(chart("payment_fail", "payment", "payment_method", "failure_rate_pct",
-              "Payment Failure Rate % by Method"), 0, 51, 3, 6),
+              "Payment Failure Rate % by Method"), 0, 52, 3, 6),
     pos(chart("return_reasons", "returns", "reason", "returns",
-              "Top Return Reasons (Category · Reason)"), 3, 51, 3, 6),
+              "Top Return Reasons (Category · Reason)"), 3, 52, 3, 6),
 
     # ------------------------------------------------------------- geography
-    pos(markdown("h_geo", "## Geography & Data Quality"), 0, 57, 6, 1),
+    pos(markdown("h_geo", "## Geography & Data Quality"), 0, 58, 6, 1),
     pos(chart("state_rev", "state", "delivery_state", "revenue_cr",
-              "Revenue by State (₹ Cr, top 10)"), 0, 58, 6, 7),
+              "Revenue by State (₹ Cr, top 10)"), 0, 59, 6, 7),
     pos(markdown("n_dq",
         "*8 checks, 0% affected on every one — referential integrity "
         "(orders/payments/shipments) plus business-rule sanity (future-dated "
         "orders, delivery-before-dispatch, duplicate order IDs, orphaned "
         "line items). The chart below is flat because there's nothing to "
-        "show, not because it's broken.*"), 0, 65, 6, 1),
+        "show, not because it's broken.*"), 0, 66, 6, 1),
     pos(chart("dq_chart", "dq", "check_name", "pct_affected",
-              "Data Quality Checks — all clean"), 0, 66, 6, 7),
+              "Data Quality Checks — all clean"), 0, 67, 6, 7),
 
     # ------------------------------------------------------ opportunities
-    pos(markdown("h_opp", "## Opportunities — Specific, Sized, Actionable"), 0, 73, 6, 1),
+    pos(markdown("h_opp", "## Opportunities — Specific, Sized, Actionable"), 0, 74, 6, 1),
     pos(markdown("n_opp",
-        "*Five findings below cross-cut the tables above to answer "
-        "\"what should we actually do,\" not just \"what happened.\" "
-        "Each is backed by a table that rebuilds every pipeline run.*"), 0, 74, 6, 1),
+        "**Priority order below, by financial exposure (recomputed every "
+        "pipeline run):**\n\n"
+        "1. **₹5.5 Cr net loss** across 61 products that show paper profit "
+        "but a net loss once refunds are netted out (chart below)\n"
+        "2. **₹7,082 average order value given up per order** in the "
+        "heaviest discount band (33,997 orders) with *no* reduction in "
+        "cancel rate (7.92% vs 8.15% at no discount) — margin given away "
+        "for nothing\n"
+        "3. **₹3.8 Cr in ad spend returning only ₹1.08 per ₹1 spent** on "
+        "Facebook (near break-even), vs ₹6.2 on Direct/App — reallocatable "
+        "budget\n"
+        "4. **37,448 orders (42% of volume) rated 3.34 vs 3.90** for "
+        "delayed vs on-time delivery, with *no* difference in return rate "
+        "— pure reputation/retention risk, not a refund-cost problem\n"
+        "5. **New-customer campaigns reach New customers only 4% of the "
+        "time** (vs 52% for Regular-targeted campaigns) — targeting isn't "
+        "working as designed"), 0, 75, 6, 2),
 
     pos(chart("true_profit_chart", "true_profit", "product_name", "refund_pct_of_profit",
-              "Products That Look Profitable But Are Net Losses After Returns"), 0, 75, 3, 7),
+              "Products That Look Profitable But Are Net Losses After Returns"), 0, 77, 3, 7),
     pos(chart("targeting_chart", "targeting", "target_segment", "targeting_precision_pct",
-              "Campaign Targeting Precision % (worst: New at 4%)"), 3, 75, 3, 7),
+              "Campaign Targeting Precision % (worst: New at 4%)"), 3, 77, 3, 7),
 
     pos(chart("delay_rating", "delay_impact", "delivery_outcome", "avg_rating",
-              "Review Rating: On-time vs Delayed (returns unaffected)"), 0, 82, 3, 6),
+              "Review Rating: On-time vs Delayed (returns unaffected)"), 0, 84, 3, 6),
     pos(chart("chan_eff_chart", "chan_eff", "channel", "revenue_per_rupee_spent",
-              "Revenue per ₹1 Campaign Spend, by Channel"), 3, 82, 3, 6),
+              "Revenue per ₹1 Campaign Spend, by Channel"), 3, 84, 3, 6),
 
     pos(chart("discount_cancel", "discount_eff", "discount_band", "cancel_rate_pct",
-              "Cancel Rate % by Discount Band — flat, discounting doesn't prevent cancellations"), 0, 88, 6, 6),
+              "Cancel Rate % by Discount Band — flat, discounting doesn't prevent cancellations"), 0, 90, 6, 6),
 
     # -------------------------------------------------------------- patterns
-    pos(markdown("h_patterns", "## Pattern Analysis — Cohorts, RFM, Affinity, Seasonality"), 0, 94, 6, 1),
+    pos(markdown("h_patterns", "## Pattern Analysis — Cohorts, RFM, Affinity, Seasonality"), 0, 96, 6, 1),
     pos(markdown("n_patterns",
         "*No free-text reviews exist in this dataset, so sentiment analysis "
         "below uses the structured rating/sentiment fields, not NLP on text. "
-        "Everything else is derived purely from order behaviour.*"), 0, 95, 6, 1),
+        "Everything else is derived purely from order behaviour.*"), 0, 97, 6, 1),
 
     pos(chart("cohort_chart", "cohort", "cohort_month", "retention_m1_pct",
-              "Month-1 Retention % by Signup Cohort", widget_type="line", scale_x="temporal"), 0, 96, 3, 6),
+              "Month-1 Retention % by Signup Cohort", widget_type="line", scale_x="temporal"), 0, 98, 3, 6),
     pos(chart("rfm_chart", "rfm", "customer_segment", "avg_recency_score",
-              "RFM Recency Score by Segment — flat, unlike frequency/monetary"), 3, 96, 3, 6),
+              "RFM Recency Score by Segment — flat, unlike frequency/monetary"), 3, 98, 3, 6),
 
     pos(chart("affinity_chart", "affinity", "pair", "orders_together",
-              "Top Category Pairs Bought Together (Fashion is the connector)"), 0, 102, 3, 7),
+              "Top Category Pairs Bought Together (Fashion is the connector)"), 0, 104, 3, 7),
     pos(chart("season_chart", "season", "month_name", "orders",
-              "Orders by Calendar Month — nearly 3x Jan to Dec", scale_x="categorical", sort_desc=False), 3, 102, 3, 7),
+              "Orders by Calendar Month — nearly 3x Jan to Dec", scale_x="categorical", sort_desc=False), 3, 104, 3, 7),
 
-    pos(counter("c_repeat_pct", "repeat_timing", "pct_repeat_at_least_once", "% Customers Who Ever Repeat-Purchase"), 0, 109, 3, 3),
-    pos(counter("c_median_days", "repeat_timing", "median_days_to_2nd_order", "Median Days to 2nd Order"), 3, 109, 3, 3),
+    pos(counter("c_repeat_pct", "repeat_timing", "pct_repeat_at_least_once", "% Customers Who Ever Repeat-Purchase"), 0, 111, 3, 3),
+    pos(counter("c_median_days", "repeat_timing", "median_days_to_2nd_order", "Median Days to 2nd Order"), 3, 111, 3, 3),
 
     pos(markdown("n_sentiment",
         "*Rate and volume tell different stories: the left chart is worst by "
         "*percentage* (small categories with few reviews can top it on noise); "
         "the right chart is worst by *count* of negative reviews -- where "
-        "support/QA effort actually has the most to fix.*"), 0, 112, 6, 1),
+        "support/QA effort actually has the most to fix.*"), 0, 114, 6, 1),
     pos(chart("sentiment_chart", "sentiment_cat", "category", "pct_negative",
-              "% Negative Reviews by Category (worst 8 by rate)"), 0, 113, 3, 6),
+              "% Negative Reviews by Category (worst 8 by rate)"), 0, 115, 3, 6),
     pos(chart("sentiment_vol_chart", "sentiment_vol", "category", "negative_reviews",
-              "Negative Review Volume by Category (worst 8 by count)"), 3, 113, 3, 6),
+              "Negative Review Volume by Category (worst 8 by count)"), 3, 115, 3, 6),
 ]
 
 serialized = {
