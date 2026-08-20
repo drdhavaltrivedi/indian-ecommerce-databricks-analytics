@@ -42,6 +42,8 @@ TABLES = [
     "indian_ecommerce.gold.review_integrity",
     "indian_ecommerce.gold.segment_performance",
     "indian_ecommerce.gold.state_performance",
+    "indian_ecommerce.gold.loyalty_tier_parity",
+    "indian_ecommerce.gold.acquisition_channel_funnel",
 ]
 
 INSTRUCTIONS = [
@@ -109,6 +111,20 @@ INSTRUCTIONS = [
     "count. gold.revenue_trends is one row per month; use it for trends. "
     "gold.segment_performance and gold.channel_efficiency are each one row "
     "per category value, not a time series.",
+
+    "LOYALTY AND ACQUISITION NUANCE. gold.loyalty_tier_parity shows Platinum "
+    "customers have spent 28x what Bronze customers have (Rs 5.17L vs Rs "
+    "18.4K average), but delay_pct and churn_pct barely move across tiers "
+    "(41.7-42.1% delay, 52.2-55.9% churn). Never say loyalty tier improves "
+    "service or retention -- it tracks past spend only, not treatment. "
+    "gold.acquisition_channel_funnel shows paid social channels (Facebook, "
+    "Affiliate, Instagram, Influencer) have a HIGHER never_purchased_pct "
+    "(10-12%) AND a LOWER avg_lifetime_spend (Rs 85-92K) than Referral/"
+    "Direct-App (6.5-6.6% never-purchase, Rs 116-118K spend). Report both "
+    "metrics together when asked which channel is 'best' -- a channel can "
+    "look fine on campaign ROI (gold.channel_efficiency) while still "
+    "underperforming on conversion and lifetime value; they are different "
+    "questions.",
 ]
 
 CURATED_SQL = [

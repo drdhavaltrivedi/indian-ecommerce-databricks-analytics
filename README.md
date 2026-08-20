@@ -68,7 +68,7 @@ flowchart TB
             direction LR
             BZ["<b>bronze</b><br/>9 tables, 1:1, all STRING<br/>+ validation_log"]
             SL["<b>silver</b><br/>star schema, 3 dim + 6 fact<br/>TRY_CAST + WHERE-filtered<br/>+ validation_rejects"]
-            GL["<b>gold</b><br/>22 tables<br/>descriptive + opportunity + pattern<br/>+ data_quality (8 checks)"]
+            GL["<b>gold</b><br/>24 tables<br/>descriptive + opportunity + pattern<br/>+ data_quality (8 checks)"]
             BZ -->|"TRY_CAST, filter,<br/>conform"| SL
             SL -->|"aggregate,<br/>join, derive"| GL
         end
@@ -85,7 +85,7 @@ flowchart TB
 
     subgraph CONSUME["CONSUMPTION"]
         DASH["Lakeview Dashboard<br/>create_dashboard.py"]
-        GENIE["AI/BI Genie Space<br/>22 tables, 7 instruction blocks"]
+        GENIE["AI/BI Genie Space<br/>24 tables, 8 instruction blocks"]
     end
 
     subgraph OPS["OPERATIONS"]
@@ -120,7 +120,7 @@ CSVs 1:1 (all `STRING`, plus a read-only `validation_log` of parse/sanity
 failures), silver types and conforms them into a proper star schema (3
 dimensions, 6 fact tables) using `TRY_CAST` and `WHERE` filters so a bad row
 is rejected and counted rather than propagated as a silent `NULL`, gold holds
-22 business-facing tables (11 descriptive + 5 opportunity/diagnostic + 6
+24 business-facing tables (11 descriptive + 5 opportunity/diagnostic + 8
 pattern-analysis) including `data_quality`, 8 referential and business-rule
 checks. See [Data quality](#data-quality) for what each layer catches.
 
@@ -151,10 +151,10 @@ flowchart TD
         FRV["<b>fact_reviews</b><br/>77,530 rows"]
     end
 
-    subgraph GLD["GOLD — 22 tables"]
+    subgraph GLD["GOLD — 24 tables"]
         GD["<b>Descriptive</b> · 11 tables<br/>revenue_trends · category_performance<br/>segment_performance · channel_performance<br/>campaign_roi · delivery_performance<br/>return_analysis · payment_performance<br/>state_performance · review_integrity · data_quality"]
         GO["<b>Opportunities</b> · 5 tables<br/>product_true_profitability<br/>campaign_targeting_precision<br/>delay_impact_on_experience<br/>channel_efficiency · discount_effectiveness"]
-        GP["<b>Patterns</b> · 6 tables<br/>cohort_retention · rfm_segmentation<br/>category_affinity · seasonality_patterns<br/>repeat_purchase_timing · sentiment_by_category"]
+        GP["<b>Patterns</b> · 8 tables<br/>cohort_retention · rfm_segmentation<br/>category_affinity · seasonality_patterns<br/>repeat_purchase_timing · sentiment_by_category<br/>loyalty_tier_parity · acquisition_channel_funnel"]
     end
 
     CSV -->|"single PUT per file<br/>(all well under 5GiB limit)"| BE
@@ -563,7 +563,7 @@ the item first.
 ## Platform features
 
 - **AI/BI Genie** ([`scripts/create_genie_space.py`](scripts/create_genie_space.py)) —
-  22 gold tables, 7 instruction blocks covering the nuanced findings
+  24 gold tables, 8 instruction blocks covering the nuanced findings
   above (e.g. "delay hurts rating, NOT return rate — never say delay causes
   more returns"). Verified: asked *"Does a delayed delivery cause more
   returns?"*, Genie correctly separated the satisfaction effect from the
@@ -571,13 +571,104 @@ the item first.
 - **Scheduled job** ([`scripts/create_job.py`](scripts/create_job.py)) —
   5-task pipeline (bronze → silver → gold/opportunities/security), created
   **paused**.
-- **3 SQL alerts** ([`scripts/create_alerts.py`](scripts/create_alerts.py)) —
-  gold freshness (>36h), Same-Day delay regression (>65%, baseline ~54-60%),
-  and a referential-integrity regression (>1%, baseline 0%). No recipients by
-  default.
+- **3 SQL alerts, on Alerts V2 with real notifications**
+  ([`scripts/create_alerts.py`](scripts/create_alerts.py)) — gold freshness
+  (>36h), Same-Day delay regression (>65%, baseline ~54-60%), and a
+  referential-integrity regression (>1%, baseline 0%). Run daily at 06:00
+  UTC and email a notification destination on breach *and* recovery — not
+  just created-and-forgotten, an alert with no recipient is not monitoring.
 - **PII tagging + governance** ([`sql/05_security.sql`](sql/05_security.sql)) —
   `customer_id`, `city`, `pincode_prefix` tagged as personal/location data;
-  grain comments on the tables most likely to be misjoined.
+  grain comments on the tables most likely to be misjoined. Full detail in
+  [Governance — AI & data](#governance--ai--data) below.
+
+## Governance — AI & data
+
+Two different governance concerns run through this project: keeping the
+*data* traceable and access-appropriate as it moves through bronze → silver
+→ gold, and keeping the *AI layer* (Genie's natural-language interface)
+from generating a confident-sounding but wrong business conclusion. Neither
+is a checkbox exercise bolted on afterward — both are wired into the
+pipeline and rebuild every run.
+
+```mermaid
+flowchart TB
+    subgraph BZ["BRONZE"]
+        BZT["Full-fidelity retention<br/>every column STRING, no casting<br/>= raw audit trail, nothing destroyed"]
+        BZV["validation_log<br/>parse/sanity failures counted,<br/>never silently dropped"]
+    end
+
+    subgraph SL["SILVER"]
+        SLC["Classification tags<br/>pii=pseudonymous_id / location<br/>sensitivity=confidential / internal"]
+        SLG["Grain documentation<br/>COMMENT ON TABLE — prevents<br/>silent double-counting on misjoin"]
+        SLR["validation_rejects<br/>bronze vs. silver row counts,<br/>per table, every run"]
+    end
+
+    subgraph GL["GOLD"]
+        GLS["gold-only exposure<br/>no bronze/silver, no raw PII<br/>reaches the NL layer"]
+        GLQ["data_quality<br/>8 checks, referential + business-rule"]
+    end
+
+    subgraph AI["AI LAYER — Genie"]
+        AIS["Scope: 24 gold tables only"]
+        AII["7 instruction blocks —<br/>guardrails against overclaiming<br/>(delay ≠ more returns, discount ≠<br/>fewer cancellations, etc.)"]
+    end
+
+    subgraph MON["MONITORING"]
+        MONA["3 alerts, daily, real<br/>email notification on breach"]
+    end
+
+    BZT --> BZV --> SLC
+    SLC --> SLG --> SLR --> GLS
+    GLS --> GLQ --> MONA
+    GLS --> AIS --> AII
+
+    style BZ fill:#3d3320,stroke:#c89b3c,color:#fff
+    style SL fill:#1e2a3a,stroke:#4a7ab0,color:#fff
+    style GL fill:#243024,stroke:#5a8a5a,color:#fff
+    style AI fill:#2e2438,stroke:#8a5ab0,color:#fff
+    style MON fill:#3a2a2a,stroke:#a05252,color:#fff
+```
+
+### Data governance
+
+| Control | Where | What it does |
+|---|---|---|
+| Full-fidelity bronze | [`sql/01_bronze.sql`](sql/01_bronze.sql) | Every column stays `STRING`, nothing is cast or dropped at ingest — bronze is always the reference to check a downstream number against |
+| PII/sensitivity tagging | [`sql/05_security.sql`](sql/05_security.sql) | `customer_id` tagged `pii=pseudonymous_id, sensitivity=confidential`; `city`/`pincode_prefix` tagged `pii=location, sensitivity=internal`; table-level `contains_pii` tags on `silver.dim_customer` and `gold.segment_performance` |
+| Grain documentation | [`sql/05_security.sql`](sql/05_security.sql) | `COMMENT ON TABLE` on the 3 tables most likely to be misjoined (e.g. `fact_order_items` grain is one row per line item, not per order — summing without grouping silently inflates revenue) |
+| 3-layer validation | [`sql/01_bronze.sql`](sql/01_bronze.sql), [`02_silver.sql`](sql/02_silver.sql), [`03_gold.sql`](sql/03_gold.sql) | Bronze counts parse/sanity failures without dropping rows; silver filters on `TRY_CAST` + business rules and counts what it rejected; gold runs 8 referential/business-rule checks. See [Data quality](#data-quality) |
+| Gold-only AI exposure | [`scripts/create_genie_space.py`](scripts/create_genie_space.py) | Genie's natural-language layer only ever queries the 24 gold tables — never bronze, never silver, never a raw PII column |
+
+**Not yet implemented** — worth being explicit about, since a tag is metadata, not enforcement:
+
+- No Unity Catalog `GRANT`-based access control beyond the workspace default (owner-only); no least-privilege role separation between, say, someone who should see `gold.*` and someone who should also see `silver.dim_customer`'s tagged PII columns
+- No column masking or row-level filtering — the `pii`/`sensitivity` tags exist so a masking policy *can* be attached later, but nothing currently enforces them at query time
+- No lineage or audit-log querying against `system.access.*` / `system.information_schema.*` — Unity Catalog tracks lineage automatically, but this project doesn't yet surface it anywhere
+
+### AI governance (Genie)
+
+The risk with a natural-language interface over real business data isn't
+that it hallucinates numbers — Genie only ever runs SQL against the actual
+gold tables — it's that a technically-correct query can still support a
+misleading conclusion if the underlying finding has a nuance the AI doesn't
+know to preserve. Two mechanisms address that:
+
+1. **Scope**: the space is built from exactly the 24 gold tables
+   (`TABLES` list in `create_genie_space.py`), nothing else — see the
+   diagram above.
+2. **7 instruction blocks**, each targeting one finding that's easy to
+   overclaim: dataset context (INR, lakh/crore framing), delivery-delay
+   nuance (hurts rating, does *not* increase returns), discount nuance
+   (doesn't reduce cancellations, only cuts margin), campaign-targeting
+   nuance, product-profitability nuance, grain/join rules, and how to read
+   the pattern-analysis tables (cohorts, RFM, affinity, seasonality).
+
+**Verified, not just configured**: asked Genie *"Does a delayed delivery
+cause more returns?"* directly, and it correctly separated the
+satisfaction effect from the return-rate non-effect, unprompted — the
+guardrail held under a question phrased to invite exactly the overclaim it
+warns against.
 
 ## Repo layout
 
