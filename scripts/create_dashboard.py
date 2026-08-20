@@ -149,6 +149,7 @@ datasets = [
     dataset("season", "SELECT CONCAT(LPAD(month_num,2,'0'), ' - ', month_name) AS month_name, orders FROM indian_ecommerce.gold.seasonality_patterns ORDER BY month_num"),
     dataset("repeat_timing", "SELECT pct_repeat_at_least_once, avg_days_to_2nd_order, median_days_to_2nd_order FROM indian_ecommerce.gold.repeat_purchase_timing"),
     dataset("sentiment_cat", "SELECT category, avg_rating, pct_negative FROM indian_ecommerce.gold.sentiment_by_category ORDER BY pct_negative DESC LIMIT 8"),
+    dataset("sentiment_vol", "SELECT category, negative_reviews FROM indian_ecommerce.gold.sentiment_by_category ORDER BY negative_reviews DESC LIMIT 8"),
 ]
 
 widgets = [
@@ -222,51 +223,65 @@ widgets = [
     # ------------------------------------------------------------- geography
     pos(markdown("h_geo", "## Geography & Data Quality"), 0, 57, 6, 1),
     pos(chart("state_rev", "state", "delivery_state", "revenue_cr",
-              "Revenue by State (₹ Cr, top 10)"), 0, 58, 3, 7),
+              "Revenue by State (₹ Cr, top 10)"), 0, 58, 6, 7),
+    pos(markdown("n_dq",
+        "*8 checks, 0% affected on every one — referential integrity "
+        "(orders/payments/shipments) plus business-rule sanity (future-dated "
+        "orders, delivery-before-dispatch, duplicate order IDs, orphaned "
+        "line items). The chart below is flat because there's nothing to "
+        "show, not because it's broken.*"), 0, 65, 6, 1),
     pos(chart("dq_chart", "dq", "check_name", "pct_affected",
-              "Data Quality Checks — all clean (synthetic, single-generator data)"), 3, 58, 3, 7),
+              "Data Quality Checks — all clean"), 0, 66, 6, 7),
 
     # ------------------------------------------------------ opportunities
-    pos(markdown("h_opp", "## Opportunities — Specific, Sized, Actionable"), 0, 65, 6, 1),
+    pos(markdown("h_opp", "## Opportunities — Specific, Sized, Actionable"), 0, 73, 6, 1),
     pos(markdown("n_opp",
         "*Five findings below cross-cut the tables above to answer "
         "\"what should we actually do,\" not just \"what happened.\" "
-        "Each is backed by a table that rebuilds every pipeline run.*"), 0, 66, 6, 1),
+        "Each is backed by a table that rebuilds every pipeline run.*"), 0, 74, 6, 1),
 
     pos(chart("true_profit_chart", "true_profit", "product_name", "refund_pct_of_profit",
-              "Products That Look Profitable But Are Net Losses After Returns"), 0, 67, 3, 7),
+              "Products That Look Profitable But Are Net Losses After Returns"), 0, 75, 3, 7),
     pos(chart("targeting_chart", "targeting", "target_segment", "targeting_precision_pct",
-              "Campaign Targeting Precision % (worst: New at 4%)"), 3, 67, 3, 7),
+              "Campaign Targeting Precision % (worst: New at 4%)"), 3, 75, 3, 7),
 
     pos(chart("delay_rating", "delay_impact", "delivery_outcome", "avg_rating",
-              "Review Rating: On-time vs Delayed (returns unaffected)"), 0, 74, 3, 6),
+              "Review Rating: On-time vs Delayed (returns unaffected)"), 0, 82, 3, 6),
     pos(chart("chan_eff_chart", "chan_eff", "channel", "revenue_per_rupee_spent",
-              "Revenue per ₹1 Campaign Spend, by Channel"), 3, 74, 3, 6),
+              "Revenue per ₹1 Campaign Spend, by Channel"), 3, 82, 3, 6),
 
     pos(chart("discount_cancel", "discount_eff", "discount_band", "cancel_rate_pct",
-              "Cancel Rate % by Discount Band — flat, discounting doesn't prevent cancellations"), 0, 80, 6, 6),
+              "Cancel Rate % by Discount Band — flat, discounting doesn't prevent cancellations"), 0, 88, 6, 6),
 
     # -------------------------------------------------------------- patterns
-    pos(markdown("h_patterns", "## Pattern Analysis — Cohorts, RFM, Affinity, Seasonality"), 0, 86, 6, 1),
+    pos(markdown("h_patterns", "## Pattern Analysis — Cohorts, RFM, Affinity, Seasonality"), 0, 94, 6, 1),
     pos(markdown("n_patterns",
         "*No free-text reviews exist in this dataset, so sentiment analysis "
         "below uses the structured rating/sentiment fields, not NLP on text. "
-        "Everything else is derived purely from order behaviour.*"), 0, 87, 6, 1),
+        "Everything else is derived purely from order behaviour.*"), 0, 95, 6, 1),
 
     pos(chart("cohort_chart", "cohort", "cohort_month", "retention_m1_pct",
-              "Month-1 Retention % by Signup Cohort", widget_type="line", scale_x="temporal"), 0, 88, 3, 6),
+              "Month-1 Retention % by Signup Cohort", widget_type="line", scale_x="temporal"), 0, 96, 3, 6),
     pos(chart("rfm_chart", "rfm", "customer_segment", "avg_recency_score",
-              "RFM Recency Score by Segment — flat, unlike frequency/monetary"), 3, 88, 3, 6),
+              "RFM Recency Score by Segment — flat, unlike frequency/monetary"), 3, 96, 3, 6),
 
     pos(chart("affinity_chart", "affinity", "pair", "orders_together",
-              "Top Category Pairs Bought Together (Fashion is the connector)"), 0, 94, 3, 7),
+              "Top Category Pairs Bought Together (Fashion is the connector)"), 0, 102, 3, 7),
     pos(chart("season_chart", "season", "month_name", "orders",
-              "Orders by Calendar Month — nearly 3x Jan to Dec", scale_x="categorical", sort_desc=False), 3, 94, 3, 7),
+              "Orders by Calendar Month — nearly 3x Jan to Dec", scale_x="categorical", sort_desc=False), 3, 102, 3, 7),
 
-    pos(counter("c_repeat_pct", "repeat_timing", "pct_repeat_at_least_once", "% Customers Who Ever Repeat-Purchase"), 0, 101, 2, 3),
-    pos(counter("c_median_days", "repeat_timing", "median_days_to_2nd_order", "Median Days to 2nd Order"), 2, 101, 2, 3),
+    pos(counter("c_repeat_pct", "repeat_timing", "pct_repeat_at_least_once", "% Customers Who Ever Repeat-Purchase"), 0, 109, 3, 3),
+    pos(counter("c_median_days", "repeat_timing", "median_days_to_2nd_order", "Median Days to 2nd Order"), 3, 109, 3, 3),
+
+    pos(markdown("n_sentiment",
+        "*Rate and volume tell different stories: the left chart is worst by "
+        "*percentage* (small categories with few reviews can top it on noise); "
+        "the right chart is worst by *count* of negative reviews -- where "
+        "support/QA effort actually has the most to fix.*"), 0, 112, 6, 1),
     pos(chart("sentiment_chart", "sentiment_cat", "category", "pct_negative",
-              "% Negative Reviews by Category (worst 8)"), 4, 101, 2, 6),
+              "% Negative Reviews by Category (worst 8 by rate)"), 0, 113, 3, 6),
+    pos(chart("sentiment_vol_chart", "sentiment_vol", "category", "negative_reviews",
+              "Negative Review Volume by Category (worst 8 by count)"), 3, 113, 3, 6),
 ]
 
 serialized = {
