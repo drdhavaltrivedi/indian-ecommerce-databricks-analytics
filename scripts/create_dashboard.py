@@ -150,6 +150,8 @@ datasets = [
     dataset("repeat_timing", "SELECT pct_repeat_at_least_once, avg_days_to_2nd_order, median_days_to_2nd_order FROM indian_ecommerce.gold.repeat_purchase_timing"),
     dataset("sentiment_cat", "SELECT category, avg_rating, pct_negative FROM indian_ecommerce.gold.sentiment_by_category ORDER BY pct_negative DESC LIMIT 8"),
     dataset("sentiment_vol", "SELECT category, negative_reviews FROM indian_ecommerce.gold.sentiment_by_category ORDER BY negative_reviews DESC LIMIT 8"),
+    dataset("loyalty", "SELECT loyalty_tier, avg_spend, delay_pct, churn_pct FROM indian_ecommerce.gold.loyalty_tier_parity ORDER BY avg_spend DESC"),
+    dataset("acq_funnel", "SELECT acquisition_channel, never_purchased_pct, avg_lifetime_spend FROM indian_ecommerce.gold.acquisition_channel_funnel ORDER BY never_purchased_pct DESC"),
 ]
 
 widgets = [
@@ -304,6 +306,28 @@ widgets = [
               "% Negative Reviews by Category (worst 8 by rate)"), 0, 115, 3, 6),
     pos(chart("sentiment_vol_chart", "sentiment_vol", "category", "negative_reviews",
               "Negative Review Volume by Category (worst 8 by count)"), 3, 115, 3, 6),
+
+    # ------------------------------------------------------- new: loyalty & acquisition
+    pos(markdown("h_loyalty", "## Loyalty Tier & Acquisition Channel — Deeper Cuts"), 0, 121, 6, 1),
+    pos(markdown("n_loyalty",
+        "*Loyalty tier tracks spend history (Platinum customers have spent "
+        "28x what Bronze customers have) but buys zero operational "
+        "differentiation — delay rate and churn rate barely move across "
+        "tiers. Acquisition channel predicts both ends of the funnel in the "
+        "same direction: paid social channels convert signups to a first "
+        "purchase worse AND the customers who do convert are worth less.*"),
+        0, 122, 6, 1),
+    pos(chart("loyalty_spend", "loyalty", "loyalty_tier", "avg_spend",
+              "Avg Lifetime Spend by Loyalty Tier (₹)"), 0, 123, 2, 7),
+    pos(chart("loyalty_delay", "loyalty", "loyalty_tier", "delay_pct",
+              "Same-Day Shipment Delay % by Tier — flat, no service benefit"), 2, 123, 2, 7),
+    pos(chart("loyalty_churn", "loyalty", "loyalty_tier", "churn_pct",
+              "Churn % by Tier — flat, no retention benefit"), 4, 123, 2, 7),
+
+    pos(chart("acq_never", "acq_funnel", "acquisition_channel", "never_purchased_pct",
+              "Never-Purchased Rate by Acquisition Channel (%)"), 0, 130, 3, 7),
+    pos(chart("acq_ltv", "acq_funnel", "acquisition_channel", "avg_lifetime_spend",
+              "Avg Lifetime Spend by Acquisition Channel (₹) — same channels lose both ways"), 3, 130, 3, 7),
 ]
 
 serialized = {
