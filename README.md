@@ -90,7 +90,7 @@ flowchart TB
 
     subgraph OPS["OPERATIONS"]
         JOB["Scheduled Job<br/>5-task Workflow — PAUSED"]
-        ALERT["3 SQL Alerts<br/>freshness · delay regression · FK integrity"]
+        ALERT["3 SQL Alerts — daily 06:00 UTC<br/>freshness · delay regression · FK integrity<br/>email on breach AND recovery"]
         METRICS["ops.metrics_history<br/>drift check per pipeline run"]
     end
 
@@ -133,10 +133,12 @@ per table — no multi-part streaming required.
 flowchart TD
     subgraph SRC["SOURCE"]
         CSV["9 CSVs, ~57MB total<br/>customers · products · orders · order_items<br/>payments · shipments · returns · reviews · campaigns"]
+        VOL["<b>UC Volume</b><br/>/Volumes/indian_ecommerce/bronze/raw_files"]
     end
 
     subgraph BRZ["BRONZE — fidelity"]
         BE["<b>bronze.*</b> — 9 tables<br/>1:1 with source, every column STRING"]
+        BV["<b>validation_log</b><br/>19 parse/sanity checks<br/>counted, never dropped"]
     end
 
     subgraph SLV["SILVER — typed star schema"]
@@ -157,9 +159,10 @@ flowchart TD
         GP["<b>Patterns</b> · 8 tables<br/>cohort_retention · rfm_segmentation<br/>category_affinity · seasonality_patterns<br/>repeat_purchase_timing · sentiment_by_category<br/>loyalty_tier_parity · acquisition_channel_funnel"]
     end
 
-    CSV -->|"single PUT per file<br/>(all well under 5GiB limit)"| BE
-    BE -->|"COPY INTO, one statement<br/>per table"| BE
-    BE -->|"CAST + type<br/>1:1, no row loss"| DC
+    CSV -->|"single PUT per file<br/>(all well under 5GiB limit)"| VOL
+    VOL -->|"COPY INTO,<br/>one statement per table"| BE
+
+    BE -->|"TRY_CAST + WHERE filter<br/>rejects counted, not silently dropped"| DC
     BE --> DP
     BE --> DCP
     BE --> FO
@@ -169,22 +172,11 @@ flowchart TD
     BE --> FR
     BE --> FRV
 
-    FO --> GD
-    FOI --> GD
-    FS --> GD
-    FR --> GD
-    FRV --> GD
-    DCP --> GD
-    FO --> GO
-    FOI --> GO
-    FS --> GO
-    FR --> GO
-    FRV --> GO
-    DCP --> GO
-    DC --> GP
-    FO --> GP
-    FOI --> GP
-    FRV --> GP
+    BE -.->|"pre-check,<br/>does not filter"| BV
+
+    SLV ==>|"aggregate · join · derive<br/>each gold table is independently<br/>built from silver, never from other gold"| GD
+    SLV ==> GO
+    SLV ==> GP
 
     style BRZ fill:#7a5c1e,stroke:#c89b3c,color:#fff
     style SLV fill:#4a4a52,stroke:#9aa0a6,color:#fff
