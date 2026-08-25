@@ -44,6 +44,11 @@ TABLES = [
     "indian_ecommerce.gold.state_performance",
     "indian_ecommerce.gold.loyalty_tier_parity",
     "indian_ecommerce.gold.acquisition_channel_funnel",
+    "indian_ecommerce.gold.seasonality_by_year",
+    "indian_ecommerce.gold.revenue_forecast",
+    "indian_ecommerce.gold.forecast_accuracy",
+    "indian_ecommerce.gold.reactivation_targets",
+    "indian_ecommerce.gold.reactivation_summary",
 ]
 
 INSTRUCTIONS = [
@@ -93,10 +98,15 @@ INSTRUCTIONS = [
     "customer is active, i.e. not churn risk. gold.category_affinity shows "
     "which categories are bought together in the same order; Fashion appears "
     "in nearly every top pair and is the natural cross-category bundling "
-    "anchor, not just a category on its own. gold.seasonality_patterns shows "
-    "orders nearly triple from January to December, a steady ramp through "
-    "the festival season (Sep-Nov) into year-end, not a single spike -- "
-    "relevant for inventory and delivery capacity planning. "
+    "anchor, not just a category on its own. gold.seasonality_patterns "
+    "aggregates order volume by month-of-year across ALL THREE years at once, "
+    "which makes it LOOK like orders triple from January to December. That is "
+    "an AGGREGATION ARTIFACT, not a seasonal pattern -- never use it for "
+    "capacity, staffing or inventory planning. Use gold.seasonality_by_year "
+    "instead, which splits by year: 2023 is a launch ramp (January starts at "
+    "398 orders), 2024 is flat all year with no Q4 lift at all, and only 2025 "
+    "surges in Q4 (December 9,590 orders vs 2,706 in December 2024). The "
+    "'festival season peak' does NOT repeat in this data -- it happened once. "
     "gold.repeat_purchase_timing shows a median of 34 days to a customer's "
     "second order (mean is higher, about 74 days, pulled up by a long tail "
     "of slow repeaters) -- use the median for lifecycle-email timing, not "
@@ -125,6 +135,31 @@ INSTRUCTIONS = [
     "look fine on campaign ROI (gold.channel_efficiency) while still "
     "underperforming on conversion and lifetime value; they are different "
     "questions.",
+
+    "FORECASTING RULES. gold.revenue_forecast is a 6-month forward forecast "
+    "with 95% prediction intervals. NEVER quote the point estimate alone -- "
+    "always give the interval too, because it is wide (roughly Rs 5-22 crore "
+    "on a Rs 12 crore central estimate). gold.forecast_accuracy holds the "
+    "backtest that justifies that caution: trained on 2023-2024 and tested "
+    "against actual 2025, overall error is about 17%, but that average hides "
+    "the failure mode -- January to September errors are 0-23%, while October "
+    "and November errors are 50-55% AND fall OUTSIDE the model's own 95% "
+    "interval. The model fits a near-linear trend and cannot anticipate a "
+    "structural break. So: treat the forecast as reliable for steady-state "
+    "months, and as a FLOOR rather than a centre whenever a surge may be "
+    "underway. If asked 'what will revenue be', give the range, state the "
+    "backtest error, and say the model would miss another Q4-2025-style "
+    "surge. Do not present forecasts as fact.",
+
+    "REACTIVATION TARGETING. gold.reactivation_targets flags repeat customers "
+    "who are overdue for their next order, measured against EACH CUSTOMER'S "
+    "OWN average gap between orders -- not a global average, which would "
+    "wrongly label naturally-infrequent buyers as churning. Tiers 1-3 (just "
+    "due, slipping, high risk) total about 3,400 customers and Rs 40 crore of "
+    "lifetime value and are the realistic outreach list. Tier 4 ('likely "
+    "lost', 10,405 customers, Rs 138 crore) averages 555 days since last "
+    "order -- around 18 months -- so treat it as a win-back experiment, not a "
+    "reactivation campaign, and do not promise that value is recoverable.",
 ]
 
 CURATED_SQL = [
@@ -206,7 +241,31 @@ if __name__ == "__main__":
         space_id = existing
         print("Updated Genie space:", space_id)
     else:
-        space_id = api("POST", "/api/2.0/genie/spaces", body)["space_id"]
+        space_id = api("POST", "/api/2.0/genie/spaces", body)["space_id"    "FORECASTING RULES. gold.revenue_forecast is a 6-month forward forecast "
+    "with 95% prediction intervals. NEVER quote the point estimate alone -- "
+    "always give the interval too, because it is wide (roughly Rs 5-22 crore "
+    "on a Rs 12 crore central estimate). gold.forecast_accuracy holds the "
+    "backtest that justifies that caution: trained on 2023-2024 and tested "
+    "against actual 2025, overall error is about 17%, but that average hides "
+    "the failure mode -- January to September errors are 0-23%, while October "
+    "and November errors are 50-55% AND fall OUTSIDE the model's own 95% "
+    "interval. The model fits a near-linear trend and cannot anticipate a "
+    "structural break. So: treat the forecast as reliable for steady-state "
+    "months, and as a FLOOR rather than a centre whenever a surge may be "
+    "underway. If asked 'what will revenue be', give the range, state the "
+    "backtest error, and say the model would miss another Q4-2025-style "
+    "surge. Do not present forecasts as fact.",
+
+    "REACTIVATION TARGETING. gold.reactivation_targets flags repeat customers "
+    "who are overdue for their next order, measured against EACH CUSTOMER'S "
+    "OWN average gap between orders -- not a global average, which would "
+    "wrongly label naturally-infrequent buyers as churning. Tiers 1-3 (just "
+    "due, slipping, high risk) total about 3,400 customers and Rs 40 crore of "
+    "lifetime value and are the realistic outreach list. Tier 4 ('likely "
+    "lost', 10,405 customers, Rs 138 crore) averages 555 days since last "
+    "order -- around 18 months -- so treat it as a win-back experiment, not a "
+    "reactivation campaign, and do not promise that value is recoverable.",
+]
         print("Created Genie space:", space_id)
 
     print(f"  tables:       {len(TABLES)}")

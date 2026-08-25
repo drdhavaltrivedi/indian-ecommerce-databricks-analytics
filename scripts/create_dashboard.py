@@ -152,6 +152,10 @@ datasets = [
     dataset("sentiment_vol", "SELECT category, negative_reviews FROM indian_ecommerce.gold.sentiment_by_category ORDER BY negative_reviews DESC LIMIT 8"),
     dataset("loyalty", "SELECT loyalty_tier, avg_spend, delay_pct, churn_pct FROM indian_ecommerce.gold.loyalty_tier_parity ORDER BY avg_spend DESC"),
     dataset("acq_funnel", "SELECT acquisition_channel, never_purchased_pct, avg_lifetime_spend FROM indian_ecommerce.gold.acquisition_channel_funnel ORDER BY never_purchased_pct DESC"),
+    dataset("season_yr", "SELECT CONCAT(order_year, '-', LPAD(month_num,2,'0')) AS ym, orders FROM indian_ecommerce.gold.seasonality_by_year ORDER BY order_year, month_num"),
+    dataset("fc", "SELECT forecast_month, revenue_cr_forecast, revenue_cr_lower, revenue_cr_upper, orders_forecast FROM indian_ecommerce.gold.revenue_forecast ORDER BY forecast_month"),
+    dataset("fc_acc", "SELECT eval_month, abs_pct_error FROM indian_ecommerce.gold.forecast_accuracy ORDER BY eval_month"),
+    dataset("react", "SELECT reactivation_tier, customers, lifetime_value_cr FROM indian_ecommerce.gold.reactivation_summary ORDER BY reactivation_tier"),
 ]
 
 widgets = [
@@ -291,8 +295,9 @@ widgets = [
 
     pos(chart("affinity_chart", "affinity", "pair", "orders_together",
               "Top Category Pairs Bought Together (Fashion is the connector)"), 0, 104, 3, 7),
-    pos(chart("season_chart", "season", "month_name", "orders",
-              "Orders by Calendar Month — nearly 3x Jan to Dec", scale_x="categorical", sort_desc=False), 3, 104, 3, 7),
+    pos(chart("season_chart", "season_yr", "ym", "orders",
+              "Orders by Month, Split by Year — the Jan→Dec 'ramp' is an artifact, not seasonality",
+              scale_x="categorical", sort_desc=False), 3, 104, 3, 7),
 
     pos(counter("c_repeat_pct", "repeat_timing", "pct_repeat_at_least_once", "% Customers Who Ever Repeat-Purchase"), 0, 111, 3, 3),
     pos(counter("c_median_days", "repeat_timing", "median_days_to_2nd_order", "Median Days to 2nd Order"), 3, 111, 3, 3),
@@ -328,6 +333,35 @@ widgets = [
               "Never-Purchased Rate by Acquisition Channel (%)"), 0, 130, 3, 7),
     pos(chart("acq_ltv", "acq_funnel", "acquisition_channel", "avg_lifetime_spend",
               "Avg Lifetime Spend by Acquisition Channel (₹) — same channels lose both ways"), 3, 130, 3, 7),
+
+    # ------------------------------------------------- forecast & prediction
+    pos(markdown("h_fc", "## Forecast & Forward-Looking Prediction"), 0, 137, 6, 1),
+    pos(markdown("n_fc",
+        "**Read the interval, not the point estimate.** Backtesting (train "
+        "2023–24, test 2025) puts average error at ~17%, but that hides the "
+        "failure mode: Jan–Sep errors were 0–23%, while Oct–Nov were 50–55% "
+        "*and fell outside the model's own 95% band*. It fits a near-linear "
+        "trend and cannot see a structural break coming — so treat it as "
+        "reliable in steady state, and as a **floor** during a possible surge."),
+        0, 138, 6, 2),
+    pos(chart("fc_rev", "fc", "forecast_month", "revenue_cr_forecast",
+              "Revenue Forecast, next 6 months (₹ Cr) — central estimate",
+              scale_x="categorical", sort_desc=False), 0, 140, 3, 6),
+    pos(chart("fc_err", "fc_acc", "eval_month", "abs_pct_error",
+              "Backtest Error by Month (%) — note Oct/Nov blowout",
+              scale_x="categorical", sort_desc=False), 3, 140, 3, 6),
+
+    pos(markdown("n_react",
+        "*Reactivation targets are scored against **each customer's own** "
+        "average gap between orders, not a global average — so naturally "
+        "infrequent buyers aren't mislabelled as churning. Tiers 1–3 (~3.4K "
+        "customers, ₹40 Cr lifetime value) are the realistic outreach list; "
+        "tier 4 averages 555 days since last order and is a win-back "
+        "experiment, not a reactivation campaign.*"), 0, 146, 6, 1),
+    pos(chart("react_cust", "react", "reactivation_tier", "customers",
+              "Customers by Reactivation Tier", scale_x="categorical", sort_desc=False), 0, 147, 3, 6),
+    pos(chart("react_ltv", "react", "reactivation_tier", "lifetime_value_cr",
+              "Lifetime Value at Stake by Tier (₹ Cr)", scale_x="categorical", sort_desc=False), 3, 147, 3, 6),
 ]
 
 serialized = {

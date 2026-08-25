@@ -20,6 +20,7 @@ LAYERS = [
     ("opportunities", "04_opportunities.sql"),
     ("security",      "05_security.sql"),
     ("patterns",      "06_patterns.sql"),
+    ("forecast",      "07_forecast.sql"),
 ]
 
 REQUIRED_ENV = ["DATABRICKS_HOST", "DATABRICKS_TOKEN", "DBX_WAREHOUSE_ID"]
