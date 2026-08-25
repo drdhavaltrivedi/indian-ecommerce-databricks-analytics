@@ -321,21 +321,21 @@ widgets = [
         "tiers. Acquisition channel predicts both ends of the funnel in the "
         "same direction: paid social channels convert signups to a first "
         "purchase worse AND the customers who do convert are worth less.*"),
-        0, 122, 6, 1),
+        0, 122, 6, 2),
     pos(chart("loyalty_spend", "loyalty", "loyalty_tier", "avg_spend",
-              "Avg Lifetime Spend by Loyalty Tier (₹)"), 0, 123, 2, 7),
+              "Avg Lifetime Spend by Loyalty Tier (₹)"), 0, 124, 2, 7),
     pos(chart("loyalty_delay", "loyalty", "loyalty_tier", "delay_pct",
-              "Same-Day Shipment Delay % by Tier — flat, no service benefit"), 2, 123, 2, 7),
+              "Same-Day Shipment Delay % by Tier — flat, no service benefit"), 2, 124, 2, 7),
     pos(chart("loyalty_churn", "loyalty", "loyalty_tier", "churn_pct",
-              "Churn % by Tier — flat, no retention benefit"), 4, 123, 2, 7),
+              "Churn % by Tier — flat, no retention benefit"), 4, 124, 2, 7),
 
     pos(chart("acq_never", "acq_funnel", "acquisition_channel", "never_purchased_pct",
-              "Never-Purchased Rate by Acquisition Channel (%)"), 0, 130, 3, 7),
+              "Never-Purchased Rate by Acquisition Channel (%)"), 0, 131, 3, 7),
     pos(chart("acq_ltv", "acq_funnel", "acquisition_channel", "avg_lifetime_spend",
-              "Avg Lifetime Spend by Acquisition Channel (₹) — same channels lose both ways"), 3, 130, 3, 7),
+              "Avg Lifetime Spend by Acquisition Channel (₹) — same channels lose both ways"), 3, 131, 3, 7),
 
     # ------------------------------------------------- forecast & prediction
-    pos(markdown("h_fc", "## Forecast & Forward-Looking Prediction"), 0, 137, 6, 1),
+    pos(markdown("h_fc", "## Forecast & Forward-Looking Prediction"), 0, 138, 6, 1),
     pos(markdown("n_fc",
         "**Read the interval, not the point estimate.** Backtesting (train "
         "2023–24, test 2025) puts average error at ~17%, but that hides the "
@@ -343,13 +343,13 @@ widgets = [
         "*and fell outside the model's own 95% band*. It fits a near-linear "
         "trend and cannot see a structural break coming — so treat it as "
         "reliable in steady state, and as a **floor** during a possible surge."),
-        0, 138, 6, 2),
+        0, 139, 6, 2),
     pos(chart("fc_rev", "fc", "forecast_month", "revenue_cr_forecast",
               "Revenue Forecast, next 6 months (₹ Cr) — central estimate",
-              scale_x="categorical", sort_desc=False), 0, 140, 3, 6),
+              scale_x="categorical", sort_desc=False), 0, 141, 3, 6),
     pos(chart("fc_err", "fc_acc", "eval_month", "abs_pct_error",
               "Backtest Error by Month (%) — note Oct/Nov blowout",
-              scale_x="categorical", sort_desc=False), 3, 140, 3, 6),
+              scale_x="categorical", sort_desc=False), 3, 141, 3, 6),
 
     pos(markdown("n_react",
         "*Reactivation targets are scored against **each customer's own** "
@@ -357,11 +357,11 @@ widgets = [
         "infrequent buyers aren't mislabelled as churning. Tiers 1–3 (~3.4K "
         "customers, ₹40 Cr lifetime value) are the realistic outreach list; "
         "tier 4 averages 555 days since last order and is a win-back "
-        "experiment, not a reactivation campaign.*"), 0, 146, 6, 1),
+        "experiment, not a reactivation campaign.*"), 0, 147, 6, 2),
     pos(chart("react_cust", "react", "reactivation_tier", "customers",
-              "Customers by Reactivation Tier", scale_x="categorical", sort_desc=False), 0, 147, 3, 6),
+              "Customers by Reactivation Tier", scale_x="categorical", sort_desc=False), 0, 149, 3, 6),
     pos(chart("react_ltv", "react", "reactivation_tier", "lifetime_value_cr",
-              "Lifetime Value at Stake by Tier (₹ Cr)", scale_x="categorical", sort_desc=False), 3, 147, 3, 6),
+              "Lifetime Value at Stake by Tier (₹ Cr)", scale_x="categorical", sort_desc=False), 3, 149, 3, 6),
 ]
 
 serialized = {
