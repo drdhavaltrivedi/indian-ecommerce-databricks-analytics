@@ -457,7 +457,7 @@ creative isn't the problem if it never reaches the intended audience.
 ### Delivery delay hurts satisfaction, not the return rate
 
 `gold.delay_impact_on_experience`: a delayed shipment drops average review
-rating from **3.90 to 3.34** — a real, meaningful gap — but return rate is
+rating from **3.93 to 3.37** — a real, meaningful gap — but return rate is
 almost unchanged (**10.08% vs 10.45%**). These are different costs: delay
 does not create direct refund exposure, it creates a reputation and
 repeat-purchase risk that a return-rate KPI alone would completely miss.

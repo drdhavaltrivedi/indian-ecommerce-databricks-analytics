@@ -73,7 +73,7 @@ ORDER BY targeting_precision_pct DESC;
 -- ---------------------------------------------------------------------------
 -- 3. DELAYED DELIVERY HURTS SATISFACTION BUT NOT THE RETURN RATE.
 --
--- A delayed shipment drops the average review rating from 3.90 to 3.34 -- a
+-- A delayed shipment drops the average review rating from 3.93 to 3.37 -- a
 -- real, meaningful gap. But the return rate is essentially unchanged (10.08%
 -- vs 10.45%). The two effects are DIFFERENT costs: delay does not create
 -- direct refund cost, it creates a reputation/repeat-purchase risk that a
@@ -82,21 +82,37 @@ ORDER BY targeting_precision_pct DESC;
 CREATE OR REPLACE TABLE indian_ecommerce.gold.delay_impact_on_experience
 COMMENT 'Review rating and return rate for delayed vs on-time shipments, at the order level. Delay depresses rating meaningfully; it does not measurably change the return rate.'
 AS
+-- NOTE ON THE JOIN SHAPE. fact_reviews and fact_returns BOTH fan out on
+-- order_id (77,530 review rows over 54,363 orders; 12,075 return rows over
+-- 9,510 orders). Joining both directly to the order list builds a cartesian
+-- product per order. That does not affect COUNT(DISTINCT ...) but it DOES
+-- bias AVG(rating): every review is repeated once per return on the same
+-- order, over-weighting orders that had returns. That bug was live here and
+-- published 3.90/3.34 instead of the correct 3.93/3.37. Each side is now
+-- collapsed to one row per order BEFORE joining.
 WITH order_delay AS (
   SELECT order_id, MAX(delayed_flag) AS was_delayed
   FROM indian_ecommerce.silver.fact_shipments
   GROUP BY order_id
+),
+order_rating AS (
+  SELECT order_id, AVG(rating) AS order_avg_rating
+  FROM indian_ecommerce.silver.fact_reviews
+  GROUP BY order_id
+),
+order_returned AS (
+  SELECT DISTINCT order_id FROM indian_ecommerce.silver.fact_returns
 )
 SELECT
   CASE WHEN d.was_delayed = 1 THEN 'Delayed' ELSE 'On-time' END AS delivery_outcome,
-  COUNT(DISTINCT d.order_id) AS orders,
-  COUNT(DISTINCT r.order_id) AS orders_reviewed,
-  ROUND(AVG(r.rating), 2) AS avg_rating,
-  COUNT(DISTINCT ret.order_id) AS orders_returned,
-  ROUND(COUNT(DISTINCT ret.order_id) * 100.0 / COUNT(DISTINCT d.order_id), 2) AS return_rate_pct
+  COUNT(*) AS orders,
+  COUNT(r.order_id) AS orders_reviewed,
+  ROUND(AVG(r.order_avg_rating), 2) AS avg_rating,
+  COUNT(ret.order_id) AS orders_returned,
+  ROUND(COUNT(ret.order_id) * 100.0 / COUNT(*), 2) AS return_rate_pct
 FROM order_delay d
-LEFT JOIN indian_ecommerce.silver.fact_reviews r ON r.order_id = d.order_id
-LEFT JOIN indian_ecommerce.silver.fact_returns ret ON ret.order_id = d.order_id
+LEFT JOIN order_rating   r   ON r.order_id   = d.order_id
+LEFT JOIN order_returned ret ON ret.order_id = d.order_id
 GROUP BY d.was_delayed;
 
 -- ---------------------------------------------------------------------------

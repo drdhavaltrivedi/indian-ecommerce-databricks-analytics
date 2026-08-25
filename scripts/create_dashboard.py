@@ -261,7 +261,7 @@ widgets = [
         "3. **₹3.8 Cr in ad spend returning only ₹1.08 per ₹1 spent** on "
         "Facebook (near break-even), vs ₹6.2 on Direct/App — reallocatable "
         "budget\n"
-        "4. **37,448 orders (42% of volume) rated 3.34 vs 3.90** for "
+        "4. **37,448 orders (42% of volume) rated 3.37 vs 3.93** for "
         "delayed vs on-time delivery, with *no* difference in return rate "
         "— pure reputation/retention risk, not a refund-cost problem\n"
         "5. **New-customer campaigns reach New customers only 4% of the "

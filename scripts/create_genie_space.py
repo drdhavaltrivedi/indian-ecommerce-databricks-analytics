@@ -60,7 +60,7 @@ INSTRUCTIONS = [
     "Indian business context.",
 
     "DELIVERY DELAY NUANCE. gold.delay_impact_on_experience shows delayed "
-    "shipments drop average review rating from 3.90 to 3.34, a real and "
+    "shipments drop average review rating from 3.93 to 3.37, a real and "
     "meaningful gap. But the return rate is almost unchanged (10.08% on-time "
     "vs 10.45% delayed). These are DIFFERENT findings: delay hurts "
     "satisfaction and repeat-purchase risk, but does NOT drive more returns. "

@@ -278,3 +278,64 @@ SELECT 'orphaned_order_items',
 FROM orphaned_order_items
 
 ORDER BY pct_affected DESC;
+
+-- ---------------------------------------------------------------------------
+-- JOIN SAFETY MAP.
+--
+-- The fact_order_items grain bug (documented as one row per
+-- (order_id, product_id) when it is really one row per order_item_id) and the
+-- delay_impact AVG(rating) fan-out bug both came from the same root cause: an
+-- assumed join key that is not actually unique. This table tests every key a
+-- reasonable person might join on and states plainly whether it fans out, so
+-- the answer is looked up rather than rediscovered by debugging a wrong number.
+--
+-- fanout_rows = 0 means the key is unique and safe to join on directly.
+-- Anything above 0 means aggregate that side to the key BEFORE joining.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE TABLE indian_ecommerce.gold.join_safety
+COMMENT 'For each fact table and each plausible join key: total rows vs distinct key values. fanout_rows > 0 means joining on that key duplicates rows and will silently inflate any SUM or AVG downstream. Check here before writing a join between two fact tables.'
+AS
+SELECT 'fact_orders' AS table_name, 'order_id' AS candidate_key,
+       COUNT(*) AS rows, COUNT(DISTINCT order_id) AS distinct_keys,
+       COUNT(*) - COUNT(DISTINCT order_id) AS fanout_rows
+FROM indian_ecommerce.silver.fact_orders
+UNION ALL
+SELECT 'fact_order_items', 'order_item_id', COUNT(*), COUNT(DISTINCT order_item_id),
+       COUNT(*) - COUNT(DISTINCT order_item_id)
+FROM indian_ecommerce.silver.fact_order_items
+UNION ALL
+SELECT 'fact_order_items', 'order_id + product_id', COUNT(*),
+       COUNT(DISTINCT CONCAT_WS('|', order_id, product_id)),
+       COUNT(*) - COUNT(DISTINCT CONCAT_WS('|', order_id, product_id))
+FROM indian_ecommerce.silver.fact_order_items
+UNION ALL
+SELECT 'fact_order_items', 'order_id', COUNT(*), COUNT(DISTINCT order_id),
+       COUNT(*) - COUNT(DISTINCT order_id)
+FROM indian_ecommerce.silver.fact_order_items
+UNION ALL
+SELECT 'fact_payments', 'order_id', COUNT(*), COUNT(DISTINCT order_id),
+       COUNT(*) - COUNT(DISTINCT order_id)
+FROM indian_ecommerce.silver.fact_payments
+UNION ALL
+SELECT 'fact_shipments', 'order_id', COUNT(*), COUNT(DISTINCT order_id),
+       COUNT(*) - COUNT(DISTINCT order_id)
+FROM indian_ecommerce.silver.fact_shipments
+UNION ALL
+SELECT 'fact_returns', 'order_id + product_id', COUNT(*),
+       COUNT(DISTINCT CONCAT_WS('|', order_id, product_id)),
+       COUNT(*) - COUNT(DISTINCT CONCAT_WS('|', order_id, product_id))
+FROM indian_ecommerce.silver.fact_returns
+UNION ALL
+SELECT 'fact_returns', 'order_id', COUNT(*), COUNT(DISTINCT order_id),
+       COUNT(*) - COUNT(DISTINCT order_id)
+FROM indian_ecommerce.silver.fact_returns
+UNION ALL
+SELECT 'fact_reviews', 'order_id + product_id', COUNT(*),
+       COUNT(DISTINCT CONCAT_WS('|', order_id, product_id)),
+       COUNT(*) - COUNT(DISTINCT CONCAT_WS('|', order_id, product_id))
+FROM indian_ecommerce.silver.fact_reviews
+UNION ALL
+SELECT 'fact_reviews', 'order_id', COUNT(*), COUNT(DISTINCT order_id),
+       COUNT(*) - COUNT(DISTINCT order_id)
+FROM indian_ecommerce.silver.fact_reviews
+ORDER BY fanout_rows DESC;
