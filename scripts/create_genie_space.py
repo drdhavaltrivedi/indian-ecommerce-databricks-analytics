@@ -116,7 +116,13 @@ INSTRUCTIONS = [
     "sentiment analysis -- say the sentiment data is a pre-labeled category, "
     "not derived from text.",
 
-    "GRAIN AND JOIN RULES. Each gold table is independently aggregated at "
+    "GRAIN AND JOIN RULES. silver.fact_order_items is ONE ROW PER "
+    "order_item_id, NOT one row per (order_id, product_id) -- 1,997 "
+    "order+product pairs appear on more than one line item, so joining "
+    "fact_order_items to fact_returns on that pair FANS OUT and "
+    "double-counts revenue and refunds. Join on order_item_id, or aggregate "
+    "each side to the (order_id, product_id) grain BEFORE joining. "
+    "Each gold table is independently aggregated at "
     "its own grain -- do not join gold tables to each other, it will double "
     "count. gold.revenue_trends is one row per month; use it for trends. "
     "gold.segment_performance and gold.channel_efficiency are each one row "

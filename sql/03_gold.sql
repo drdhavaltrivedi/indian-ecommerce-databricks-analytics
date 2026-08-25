@@ -185,6 +185,23 @@ duplicate_order_ids AS (
     GROUP BY order_id HAVING COUNT(*) > 1
   )
 ),
+duplicate_return_ids AS (
+  SELECT COUNT(*) AS n FROM (
+    SELECT return_id FROM indian_ecommerce.silver.fact_returns
+    GROUP BY return_id HAVING COUNT(*) > 1
+  )
+),
+refund_exceeds_item_revenue AS (
+  SELECT COUNT(*) AS n FROM (
+    SELECT r.order_id, r.product_id
+    FROM (SELECT order_id, product_id, SUM(refund_amount) AS refunded
+          FROM indian_ecommerce.silver.fact_returns GROUP BY order_id, product_id) r
+    JOIN (SELECT order_id, product_id, SUM(item_revenue) AS revenue
+          FROM indian_ecommerce.silver.fact_order_items GROUP BY order_id, product_id) i
+      ON i.order_id = r.order_id AND i.product_id = r.product_id
+    WHERE r.refunded > i.revenue + 1
+  )
+),
 orphaned_order_items AS (
   SELECT COUNT(*) AS n
   FROM indian_ecommerce.silver.fact_order_items oi
@@ -238,6 +255,20 @@ SELECT 'duplicate_order_ids',
        n,
        ROUND(n * 100.0 / (SELECT total_orders FROM totals), 2)
 FROM duplicate_order_ids
+
+UNION ALL
+SELECT 'duplicate_return_ids',
+       'return_id values appearing more than once -- would double-count refunds in product profitability',
+       n,
+       ROUND(n * 100.0 / (SELECT COUNT(*) FROM indian_ecommerce.silver.fact_returns), 2)
+FROM duplicate_return_ids
+
+UNION ALL
+SELECT 'refund_exceeds_item_revenue',
+       'Order+product pairs refunded more than was actually paid for them -- the real duplicate-refund test',
+       n,
+       ROUND(n * 100.0 / (SELECT COUNT(*) FROM indian_ecommerce.silver.fact_returns), 2)
+FROM refund_exceeds_item_revenue
 
 UNION ALL
 SELECT 'orphaned_order_items',
