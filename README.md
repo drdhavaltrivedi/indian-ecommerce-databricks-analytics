@@ -662,6 +662,39 @@ satisfaction effect from the return-rate non-effect, unprompted — the
 guardrail held under a question phrased to invite exactly the overclaim it
 warns against.
 
+## Data-model auditing
+
+Two bugs in this project traced to the same root cause: a join key assumed
+unique that was never tested. Spot checks do not catch that -- so
+[`scripts/audit_model.py`](scripts/audit_model.py) tests every key on every
+table, and discovers the schema itself rather than being told about it, so it
+runs against any `catalog.schema` including ones it has never seen.
+
+```bash
+python3 scripts/audit_model.py indian_ecommerce.silver
+python3 scripts/audit_model.py ecommerce.silver          # different project, same script
+```
+
+| Finding | Meaning |
+|---|---|
+| `CARTESIAN` | Two tables repeat the same key -- joining both to a common parent multiplies rows. **This is the shape that caused the `delay_impact` bug.** |
+| `NEAR-KEY` | A column that looks unique but has a few duplicates -- the `fact_order_items` grain bug |
+| `FANOUT` | A multi-column candidate key that is not actually unique |
+| `ORPHAN` | Foreign-key values with no matching parent row |
+| `NO-PK` | Table with no single-column unique key |
+| `NEGATIVE` / `RANGE` / `FUTURE` | Amounts below zero, percentages outside 0-100, dates after today |
+| `CONSTANT` / `NULLS` | Columns carrying no information, or >50% null |
+
+Deliberately quiet about normal star-schema shape: a fact table having many
+rows per dimension member is *by design*, so plain fact-to-dimension fan-out
+is not reported. Only surprising duplication is.
+
+Running it against the clickstream project (110M rows, a schema it had never
+seen) surfaced that `fact_events` has **no single-column primary key**, and
+that its natural composite key (`user_session + event_time + product_id +
+event_type`) has **12 duplicate events out of 109,819,992** -- 0.00%, but now
+a known quantity rather than an assumption.
+
 ## Repo layout
 
 ```
